@@ -25,6 +25,12 @@ El flujo de trabajo es:
 ```
 feature/* → develop → main
 ```
+### Justificacion
+
+
+Decidimos implementar **GitLab Flow** basándonos en nuestra experiencia previa con GitFlow en el proyecto integrador. Si bien esa metodología resultó muy útil en su momento, consideramos que para un desarrollo de corta duración y sin continuidad a largo plazo, su estructura genera una sobrecarga innecesaria. 
+
+Por este motivo, optamos por esta alternativa de ramificación: un enfoque menos exigente que reduce los pasos intermedios, pero que mantiene un nivel de orden y organización muy similar. Esto permitió que la adaptación del equipo fuera más ágil y eficiente, optimizando los tiempos de trabajo sin perder el control del flujo de desarrollo.
 
 ---
 
