@@ -27,10 +27,13 @@ jobs:
           fetch-depth: 0
 
       # ---------- SECRETS ----------
-      - name: Detect secrets (Gitleaks)
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Detect secrets (TruffleHog)
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --only-verified
 
       # ---------- SAST ----------
       # TODO: descomentar cuando Semgrep esté configurado
