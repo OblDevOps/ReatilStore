@@ -11,11 +11,21 @@ services:
       - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U retail_user -d orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
 
   catalog:
     build:
@@ -28,7 +38,8 @@ services:
       RETAIL_CATALOG_PERSISTENCE_USER: retail_user
       RETAIL_CATALOG_PERSISTENCE_PASSWORD: retailpassword
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   carts:
     build:
@@ -42,7 +53,8 @@ services:
       CART_POSTGRES_PASSWORD: retailpassword
       PORT: "8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   orders:
     build:
@@ -54,7 +66,8 @@ services:
       RETAIL_ORDERS_PERSISTENCE_USERNAME: retail_user
       RETAIL_ORDERS_PERSISTENCE_PASSWORD: retailpassword
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
   checkout:
     build:
@@ -64,8 +77,10 @@ services:
       RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL: redis://redis:6379
       RETAIL_CHECKOUT_ENDPOINTS_ORDERS: http://orders:8080
     depends_on:
-      - redis
-      - orders
+      redis:
+        condition: service_healthy
+      orders:
+        condition: service_started
 
   ui:
     build:
@@ -78,10 +93,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - catalog
-      - carts
-      - orders
-      - checkout
+      catalog:
+        condition: service_started
+      carts:
+        condition: service_started
+      orders:
+        condition: service_started
+      checkout:
+        condition: service_started
 
   admin:
     build:
@@ -97,7 +116,8 @@ services:
     ports:
       - "8081:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
 
 volumes:
   db-data:
