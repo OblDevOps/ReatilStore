@@ -1,8 +1,18 @@
-FROM python:3.12
+FROM python:3.12-slim AS builder
 WORKDIR /app
-COPY . .
-RUN pip install -r requirements.txt
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY requirements.txt ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+FROM python:3.12-slim
+WORKDIR /app
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+COPY app ./app
 ENV CART_PERSISTENCE_PROVIDER=in-memory
 ENV PORT=8080
 EXPOSE 8080
+RUN groupadd -r appuser && useradd -r -g appuser appuser
+USER appuser
 CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port $PORT"]
