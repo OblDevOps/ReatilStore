@@ -10,6 +10,7 @@ FROM node:26-alpine3.24
 WORKDIR /app
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/package*.json ./
+COPY public ./public
 RUN npm ci --omit=dev
 ENV PORT=8080
 EXPOSE 8080
