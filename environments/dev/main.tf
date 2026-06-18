@@ -7,3 +7,9 @@ module "network" {
   private_subnets    = var.private_subnets
   availability_zones = var.availability_zones
 }
+
+module "ecr" {
+  source           = "../../modules/ecr"
+  repository_names = var.repository_names
+  environment      = var.environment
+}
