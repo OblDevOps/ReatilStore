@@ -27,3 +27,8 @@ variable "availability_zones" {
   description = "Lista de AZs, en el mismo orden que las subnets"
   type        = list(string)
 }
+
+variable "repository_names" {
+  description = "Microservicios que tendrán repositorio ECR"
+  type        = list(string)
+}
