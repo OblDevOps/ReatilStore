@@ -37,7 +37,8 @@ module "service_ui" {
   private_subnet_ids = module.network.private_subnet_ids
 
   #  cluster
-  cluster_id = module.ecs.cluster_id
+  cluster_id   = module.ecs.cluster_id
+  cluster_name = module.ecs.cluster_name
 
 
   container_image = "${module.ecr.repository_urls["ui"]}:latest"

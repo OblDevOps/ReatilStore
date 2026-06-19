@@ -73,3 +73,26 @@ variable "execution_role_arn" {
   description = "ARN del LabRole para ejecución de tareas ECS"
   type        = string
 }
+
+variable "min_capacity" {
+  description = "Mínimo de tareas para el auto scaling"
+  type        = number
+  default     = 1
+}
+
+variable "max_capacity" {
+  description = "Máximo de tareas para el auto scaling"
+  type        = number
+  default     = 3
+}
+
+variable "cpu_target" {
+  description = "Porcentaje de CPU objetivo para escalar"
+  type        = number
+  default     = 70
+}
+
+variable "cluster_name" {
+  description = "Nombre del cluster ECS"
+  type        = string
+}

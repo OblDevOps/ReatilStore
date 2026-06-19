@@ -52,7 +52,6 @@ resource "aws_security_group" "task" {
   }
 }
 
-
 resource "aws_ecs_task_definition" "main" {
   family                   = var.service_name
   requires_compatibilities = ["FARGATE"]
@@ -177,5 +176,30 @@ resource "aws_ecs_service" "main" {
   tags = {
     Name        = var.service_name
     Environment = var.environment
+  }
+}
+
+#auto scaling target. define los límites (min/max tareas) para este service
+resource "aws_appautoscaling_target" "ecs" {
+  max_capacity       = var.max_capacity
+  min_capacity       = var.min_capacity
+  resource_id        = "service/${var.cluster_name}/${var.service_name}"
+  scalable_dimension = "ecs:service:DesiredCount"
+  service_namespace  = "ecs"
+}
+
+# auto scaling policy.escala según el uso de CPU
+resource "aws_appautoscaling_policy" "cpu" {
+  name               = "${var.service_name}-cpu-autoscaling"
+  policy_type        = "TargetTrackingScaling"
+  resource_id        = aws_appautoscaling_target.ecs.resource_id
+  scalable_dimension = aws_appautoscaling_target.ecs.scalable_dimension
+  service_namespace  = aws_appautoscaling_target.ecs.service_namespace
+
+  target_tracking_scaling_policy_configuration {
+    predefined_metric_specification {
+      predefined_metric_type = "ECSServiceAverageCPUUtilization"
+    }
+    target_value = var.cpu_target
   }
 }
