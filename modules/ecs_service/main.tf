@@ -52,6 +52,45 @@ resource "aws_security_group" "task" {
   }
 }
 
+
+resource "aws_ecs_task_definition" "main" {
+  family                   = var.service_name
+  requires_compatibilities = ["FARGATE"]
+  network_mode             = "awsvpc"
+  cpu                      = var.cpu
+  memory                   = var.memory
+  execution_role_arn       = var.execution_role_arn
+
+  container_definitions = jsonencode([
+    {
+      name      = var.service_name
+      image     = var.container_image
+      essential = true
+
+      portMappings = [
+        {
+          containerPort = var.container_port
+          protocol      = "tcp"
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = "/ecs/${var.service_name}"
+          "awslogs-region"        = var.aws_region
+          "awslogs-stream-prefix" = "ecs"
+        }
+      }
+    }
+  ])
+
+  tags = {
+    Name        = var.service_name
+    Environment = var.environment
+  }
+}
+
 # Application Load Balancer. recibe el tráfico de internet y lo reparte entre las tareas
 resource "aws_lb" "main" {
   name               = "${var.service_name}-alb"
