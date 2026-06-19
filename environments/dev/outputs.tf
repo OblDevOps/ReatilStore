@@ -12,3 +12,9 @@ output "private_subnet_ids" {
   description = "IDs de las subnets privadas"
   value       = module.network.private_subnet_ids
 }
+
+#ruta de la ui
+output "ui_alb_dns" {
+  description = "URL pública del servicio ui"
+  value       = module.service_ui.alb_dns_name
+}
