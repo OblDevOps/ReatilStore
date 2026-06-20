@@ -9,7 +9,7 @@ resource "aws_security_group" "alb" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = var.internal ? [var.vpc_cidr] : ["0.0.0.0/0"]
+    cidr_blocks = var.internal ? [var.vpc_cidr] : ["0.0.0.0/0"] #si es interno, acepta solo del cidr de la vpc. si es público, de cualquier internet
   }
 
   egress {
@@ -65,6 +65,8 @@ resource "aws_ecs_task_definition" "main" {
       name      = var.service_name
       image     = var.container_image
       essential = true
+
+      environment = var.environment_variables
 
       portMappings = [
         {
@@ -186,6 +188,8 @@ resource "aws_appautoscaling_target" "ecs" {
   resource_id        = "service/${var.cluster_name}/${var.service_name}"
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
+
+  depends_on = [aws_ecs_service.main]
 }
 
 # auto scaling policy.escala según el uso de CPU

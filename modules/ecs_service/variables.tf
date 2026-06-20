@@ -108,3 +108,12 @@ variable "vpc_cidr" {
   type        = string
   default     = ""
 }
+
+variable "environment_variables" {
+  description = "Variables de entorno para el contenedor"
+  type = list(object({
+    name  = string
+    value = string
+  }))
+  default = []
+}
