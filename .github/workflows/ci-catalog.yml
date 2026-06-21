@@ -73,7 +73,7 @@ jobs:
           scan-type: fs
           scan-ref: src/catalog
           severity: CRITICAL,HIGH
-          exit-code: '1'
+          exit-code: "1"
           ignore-unfixed: true
 
   # Pruebas de integración con Newman
@@ -177,7 +177,7 @@ jobs:
         with:
           image-ref: ${{ steps.login-ecr.outputs.registry }}/catalog:${{ github.sha }}
           severity: CRITICAL,HIGH
-          exit-code: '1'
+          exit-code: "1"
           ignore-unfixed: true
 
       - name: SonarCloud Scan

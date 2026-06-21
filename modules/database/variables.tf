@@ -39,10 +39,9 @@ variable "db_user" {
   default     = "retail_user"
 }
 
-variable "db_password" {
-  description = "Password de Postgres"
+variable "db_secret_arn" {
+  description = "ARN del secret en Secrets Manager con el password de Postgres"
   type        = string
-  default     = "retailpassword"
 }
 
 variable "db_name" {

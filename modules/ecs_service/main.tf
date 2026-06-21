@@ -67,6 +67,7 @@ resource "aws_ecs_task_definition" "main" {
       essential = true
 
       environment = var.environment_variables
+      secrets     = var.secret_arns
 
       portMappings = [
         {
@@ -189,7 +190,7 @@ resource "aws_appautoscaling_target" "ecs" {
   scalable_dimension = "ecs:service:DesiredCount"
   service_namespace  = "ecs"
 
-  depends_on = [aws_ecs_service.main]
+  depends_on = [aws_ecs_service.main] #no crea auto scalling hasta que ecs no exista
 }
 
 # auto scaling policy.escala según el uso de CPU

@@ -72,7 +72,7 @@ module "database" {
   container_image    = "${module.ecr.repository_urls["db"]}:latest"
   execution_role_arn = data.aws_iam_role.labrole.arn
 
-  db_password = var.db_password
+  db_secret_arn = aws_secretsmanager_secret.db_password.arn
 }
 
 # Servicio interno. catalog (ALB interno conectado a Postgres)
@@ -106,7 +106,13 @@ module "service_catalog" {
     { name = "RETAIL_CATALOG_PERSISTENCE_ENDPOINT", value = "${module.database.db_endpoint}:5432" },
     { name = "RETAIL_CATALOG_PERSISTENCE_DB_NAME", value = "catalogdb" },
     { name = "RETAIL_CATALOG_PERSISTENCE_USER", value = "retail_user" },
-    { name = "RETAIL_CATALOG_PERSISTENCE_PASSWORD", value = var.db_password }
+  ]
+
+  secret_arns = [
+    {
+      name      = "RETAIL_CATALOG_PERSISTENCE_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.db_password.arn
+    }
   ]
 
   execution_role_arn = data.aws_iam_role.labrole.arn

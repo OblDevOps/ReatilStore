@@ -117,3 +117,12 @@ variable "environment_variables" {
   }))
   default = []
 }
+
+variable "secret_arns" {
+  description = "Secretos de Secrets Manager a inyectar como env vars"
+  type = list(object({
+    name      = string
+    valueFrom = string
+  }))
+  default = []
+}

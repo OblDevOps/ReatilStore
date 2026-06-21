@@ -59,8 +59,13 @@ resource "aws_ecs_task_definition" "db" {
 
       environment = [
         { name = "POSTGRES_USER", value = var.db_user },
-        { name = "POSTGRES_PASSWORD", value = var.db_password },
         { name = "POSTGRES_DB", value = var.db_name }
+      ]
+      secrets = [
+        {
+          name      = "POSTGRES_PASSWORD"
+          valueFrom = var.db_secret_arn
+        }
       ]
 
       logConfiguration = {
