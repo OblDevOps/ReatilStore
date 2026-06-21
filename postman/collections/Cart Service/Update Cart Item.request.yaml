@@ -1,0 +1,58 @@
+$kind: http-request
+name: Update Cart Item
+method: PATCH
+url: '{{baseUrl}}/carts/{{customerId}}/items'
+order: 6000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "itemId": "PRODUCT-1",
+      "quantity": 2,
+      "unitPrice": 1099
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: PATCH /carts/{customerId}/items should update and return the item
+      pm.test('Update Cart Item: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('Update Cart Item: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      pm.test('Update Cart Item: content-type is JSON', function () {
+        pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');
+      });
+
+      pm.test('Update Cart Item: body echoes an object', function () {
+        var body = pm.response.json();
+        pm.expect(body).to.be.an('object');
+      });
+
+      // Independent error case: target a clearly nonexistent item id.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        {
+          url: baseUrl + '/carts/__no_such_customer_zzz/items/__no_such_item_zzz',
+          method: 'PATCH',
+          header: { 'Content-Type': 'application/json' },
+          body: { mode: 'raw', raw: '{}' }
+        },
+        function (err, res) {
+          pm.test('Update Cart Item: nonexistent item returns an error (>= 400)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+            pm.expect([400, 404, 422]).to.include(res.code);
+          });
+        }
+      );

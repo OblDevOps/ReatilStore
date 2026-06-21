@@ -1,0 +1,19 @@
+$kind: http-request
+name: Update Product
+method: PUT
+url: '{{baseUrl}}/admin/api/products/{{productId}}'
+order: 6000
+pathVariables:
+  - key: productId
+    value: 'PRODUCT-1'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "name": "Updated Product",
+      "description": "Updated description",
+      "price": 1299
+    }

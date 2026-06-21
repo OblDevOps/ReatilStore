@@ -1,0 +1,51 @@
+$kind: http-request
+name: List Products
+method: GET
+url: '{{baseUrl}}/catalog/products'
+order: 1000
+queryParams:
+  - key: tags
+    value: ''
+    disabled: true
+  - key: order
+    value: ''
+    disabled: true
+  - key: page
+    value: ''
+    disabled: true
+  - key: size
+    value: ''
+    disabled: true
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: GET /catalog/products should return a JSON array
+      pm.test('List Products: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('List Products: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      pm.test('List Products: Content-Type is JSON', function () {
+        pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');
+      });
+
+      pm.test('List Products: body is an array', function () {
+        var body = pm.response.json();
+        pm.expect(Array.isArray(body)).to.be.true;
+      });
+
+      // Independent error case: an invalid query is sent in a brand-new request.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/catalog/products?size=-1&page=abc', method: 'GET' },
+        function (err, res) {
+          pm.test('List Products: invalid query is handled (200, 400 or 422)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.oneOf([200, 400, 422]);
+          });
+        }
+      );

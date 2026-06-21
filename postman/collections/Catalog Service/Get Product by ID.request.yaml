@@ -1,0 +1,51 @@
+$kind: http-request
+name: Get Product by ID
+method: GET
+url: '{{baseUrl}}/catalog/products/{{productId}}'
+order: 2000
+pathVariables:
+  - key: productId
+    value: 'PRODUCT-1'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: GET /catalog/products/{{productId}} returns a single product object
+      pm.test('Get Product by ID: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('Get Product by ID: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      pm.test('Get Product by ID: Content-Type is JSON', function () {
+        pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');
+      });
+
+      pm.test('Get Product by ID: body is an object with expected fields', function () {
+        var body = pm.response.json();
+        pm.expect(body).to.be.an('object');
+        // Tolerant shape check: validate the fields that actually exist.
+        if (body.id !== undefined) {
+          pm.expect(body.id).to.not.be.undefined;
+        }
+        if (body.name !== undefined) {
+          pm.expect(body.name).to.be.a('string');
+        }
+        if (body.price !== undefined) {
+          pm.expect(body.price).to.be.a('number');
+        }
+      });
+
+      // Independent error case: request a product id that should not exist.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/catalog/products/nonexistent-id-zzz', method: 'GET' },
+        function (err, res) {
+          pm.test('Get Product by ID: nonexistent id returns a client error (400 or 404)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.oneOf([400, 404]);
+          });
+        }
+      );

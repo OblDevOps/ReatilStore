@@ -1,0 +1,6 @@
+$kind: collection
+name: Catalog Service
+description: Go/Gin Catalog microservice
+variables:
+  - key: baseUrl
+    value: ''

@@ -1,0 +1,31 @@
+$kind: http-request
+name: Create Order
+method: POST
+url: '{{baseUrl}}/orders'
+order: 2000
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "shippingAddress": {
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "email": "jane@example.com",
+        "address1": "123 Main St",
+        "address2": "",
+        "city": "Springfield",
+        "state": "IL",
+        "zipCode": "62701"
+      },
+      "items": [
+        {
+          "productId": "PRODUCT-1",
+          "name": "Sample Product",
+          "quantity": 1,
+          "price": 1099
+        }
+      ]
+    }

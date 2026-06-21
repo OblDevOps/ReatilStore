@@ -6,6 +6,11 @@
 crash.log
 crash.*.log
 node_modules/
-postman/
+postman/*
+!postman/collections/
+postman/collections/*
+!postman/collections/**/
+!postman/collections/**/*.yaml
+!postman/collections/**/*.yml
 .postman/
 # Note: do NOT ignore .terraform.lock.hcl — that one you DO want committed

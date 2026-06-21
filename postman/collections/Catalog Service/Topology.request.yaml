@@ -1,0 +1,29 @@
+$kind: http-request
+name: Topology
+method: GET
+url: '{{baseUrl}}/topology'
+order: 6000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: GET /topology should respond OK
+      pm.test('Topology: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('Topology: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      // Independent error case: request a clearly invalid path.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/catalog/__does_not_exist__', method: 'GET' },
+        function (err, res) {
+          pm.test('Topology: invalid path returns an error (>= 400)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+          });
+        }
+      );

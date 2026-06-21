@@ -1,0 +1,8 @@
+$kind: http-request
+name: Get Checkout
+method: GET
+url: '{{baseUrl}}/checkout/{{customerId}}'
+order: 1000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'

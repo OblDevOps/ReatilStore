@@ -1,0 +1,30 @@
+$kind: http-request
+name: Health Check
+method: GET
+url: '{{baseUrl}}/health'
+order: 10000
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: GET /health should be up
+      pm.test('Health Check: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('Health Check: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      // Independent error case: request a clearly invalid path.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/__does_not_exist__', method: 'GET' },
+        function (err, res) {
+          pm.test('Health Check: invalid path returns 404', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+            pm.expect([404]).to.include(res.code);
+          });
+        }
+      );

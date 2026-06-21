@@ -1,0 +1,6 @@
+$kind: collection
+name: Admin Service
+description: Express Admin microservice with JWT cookie auth
+variables:
+  - key: baseUrl
+    value: ''

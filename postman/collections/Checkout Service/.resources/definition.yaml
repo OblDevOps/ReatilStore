@@ -1,0 +1,6 @@
+$kind: collection
+name: Checkout Service
+description: NestJS Checkout microservice
+variables:
+  - key: baseUrl
+    value: ''

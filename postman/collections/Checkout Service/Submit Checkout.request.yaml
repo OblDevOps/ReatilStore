@@ -1,0 +1,8 @@
+$kind: http-request
+name: Submit Checkout
+method: POST
+url: '{{baseUrl}}/checkout/{{customerId}}/submit'
+order: 3000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'

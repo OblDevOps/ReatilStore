@@ -1,0 +1,33 @@
+$kind: http-request
+name: Delete Cart
+method: DELETE
+url: '{{baseUrl}}/carts/{{customerId}}'
+order: 2000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: DELETE /carts/{customerId} should succeed
+      pm.test('Delete Cart: status code is a success (200/204)', function () {
+        pm.expect([200, 204]).to.include(pm.response.code);
+      });
+
+      pm.test('Delete Cart: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      // Independent error case: delete a clearly nonexistent customer cart.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/carts/__no_such_customer_zzz', method: 'DELETE' },
+        function (err, res) {
+          pm.test('Delete Cart: nonexistent customer returns an error (>= 400)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+            pm.expect([400, 404, 422]).to.include(res.code);
+          });
+        }
+      );

@@ -1,0 +1,5 @@
+$kind: http-request
+name: Topology
+method: GET
+url: '{{baseUrl}}/topology'
+order: 5000

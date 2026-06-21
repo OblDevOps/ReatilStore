@@ -1,0 +1,58 @@
+$kind: http-request
+name: Add Cart Item
+method: POST
+url: '{{baseUrl}}/carts/{{customerId}}/items'
+order: 5000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "itemId": "PRODUCT-1",
+      "quantity": 1,
+      "unitPrice": 1099
+    }
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: POST /carts/{customerId}/items should create/return the item
+      pm.test('Add Cart Item: status code is a success (200/201)', function () {
+        pm.expect([200, 201]).to.include(pm.response.code);
+      });
+
+      pm.test('Add Cart Item: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      pm.test('Add Cart Item: content-type is JSON', function () {
+        pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');
+      });
+
+      pm.test('Add Cart Item: body echoes an object', function () {
+        var body = pm.response.json();
+        pm.expect(body).to.be.an('object');
+      });
+
+      // Independent error case: POST to nonexistent customer with invalid empty body.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        {
+          url: baseUrl + '/carts/__no_such_customer_zzz/items',
+          method: 'POST',
+          header: { 'Content-Type': 'application/json' },
+          body: { mode: 'raw', raw: '{}' }
+        },
+        function (err, res) {
+          pm.test('Add Cart Item: invalid request returns an error (>= 400)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+            pm.expect([400, 404, 422]).to.include(res.code);
+          });
+        }
+      );

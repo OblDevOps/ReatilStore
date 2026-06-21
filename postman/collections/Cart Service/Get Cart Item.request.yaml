@@ -1,0 +1,44 @@
+$kind: http-request
+name: Get Cart Item
+method: GET
+url: '{{baseUrl}}/carts/{{customerId}}/items/{{itemId}}'
+order: 7000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'
+  - key: itemId
+    value: 'PRODUCT-1'
+scripts:
+  - type: afterResponse
+    language: text/javascript
+    code: |-
+      // Happy path: GET /carts/{customerId}/items/{itemId} should return the item
+      pm.test('Get Cart Item: status code is 200', function () {
+        pm.response.to.have.status(200);
+      });
+
+      pm.test('Get Cart Item: response time is reasonable', function () {
+        pm.expect(pm.response.responseTime).to.be.below(5000);
+      });
+
+      pm.test('Get Cart Item: content-type is JSON', function () {
+        pm.expect(pm.response.headers.get('Content-Type') || '').to.include('json');
+      });
+
+      pm.test('Get Cart Item: body is an object', function () {
+        var body = pm.response.json();
+        pm.expect(body).to.be.an('object');
+      });
+
+      // Independent error case: target a clearly nonexistent item id.
+      var baseUrl = pm.variables.replaceIn('{{baseUrl}}');
+      pm.sendRequest(
+        { url: baseUrl + '/carts/__no_such_customer_zzz/items/__no_such_item_zzz', method: 'GET' },
+        function (err, res) {
+          pm.test('Get Cart Item: nonexistent item returns an error (>= 400)', function () {
+            pm.expect(err).to.be.null;
+            pm.expect(res.code).to.be.at.least(400);
+            pm.expect([400, 404, 422]).to.include(res.code);
+          });
+        }
+      );

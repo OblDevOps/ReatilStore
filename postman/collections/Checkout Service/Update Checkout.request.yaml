@@ -1,0 +1,33 @@
+$kind: http-request
+name: Update Checkout
+method: POST
+url: '{{baseUrl}}/checkout/{{customerId}}/update'
+order: 2000
+pathVariables:
+  - key: customerId
+    value: 'customer-1'
+headers:
+  - key: Content-Type
+    value: application/json
+body:
+  type: json
+  content: |-
+    {
+      "items": [
+        {
+          "itemId": "PRODUCT-1",
+          "quantity": 1
+        }
+      ],
+      "shippingAddress": {
+        "firstName": "Jane",
+        "lastName": "Doe",
+        "address1": "123 Main St",
+        "address2": "",
+        "city": "Springfield",
+        "state": "IL",
+        "zip": "62701",
+        "email": "jane@example.com"
+      },
+      "deliveryOptionToken": ""
+    }
