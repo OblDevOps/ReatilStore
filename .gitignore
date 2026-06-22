@@ -5,5 +5,11 @@
 *.tfstate.*
 crash.log
 crash.*.log
-node_modules/
-# Note: do NOT ignore .terraform.lock.hcl — that one you DO want committed
+*.tfplan
+override.tf
+override.tf.json
+*_override.tf
+
+*.auto.tfvars
+secrets.tfvars
+environments/dev/dev.tfvars
