@@ -43,3 +43,15 @@ variable "db_password" {
   type        = string
   sensitive   = true
 }
+
+variable "admin_password" {
+  description = "Password del admin"
+  type        = string
+  sensitive   = true
+}
+
+variable "admin_jwt_secret" {
+  description = "JWT secret del admin"
+  type        = string
+  sensitive   = true
+}

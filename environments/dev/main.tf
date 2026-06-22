@@ -238,3 +238,49 @@ module "service_checkout" {
 
   execution_role_arn = data.aws_iam_role.labrole.arn
 }
+
+module "service_admin" {
+  source = "../../modules/ecs_service"
+
+  service_name = "admin"
+  environment  = var.environment
+
+  vpc_id             = module.network.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  cluster_id   = module.ecs.cluster_id
+  cluster_name = module.ecs.cluster_name
+
+  container_image   = "${module.ecr.repository_urls["admin"]}:latest"
+  container_port    = 8080
+  cpu               = 256
+  memory            = 512
+  desired_count     = 1
+  health_check_path = "/health"
+
+  environment_variables = [
+    { name = "DB_HOST", value = module.database.db_endpoint },
+    { name = "DB_PORT", value = "5432" },
+    { name = "DB_USER", value = "retail_user" },
+    { name = "ADMIN_USERNAME", value = "admin" },
+  ]
+
+  secret_arns = [
+    {
+      name      = "DB_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.db_password.arn
+    },
+    {
+      name      = "ADMIN_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.admin_password.arn
+    },
+    {
+      name      = "ADMIN_JWT_SECRET"
+      valueFrom = aws_secretsmanager_secret.admin_jwt_secret.arn
+    }
+  ]
+
+  execution_role_arn = data.aws_iam_role.labrole.arn
+}

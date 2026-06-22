@@ -18,3 +18,9 @@ output "ui_alb_dns" {
   description = "URL pública del servicio ui"
   value       = module.service_ui.alb_dns_name
 }
+
+#ruta de la ui-admin
+output "ui_admin_alb_dns" {
+  description = "URL pública del servicio ui"
+  value       = module.service_admin.alb_dns_name
+}
