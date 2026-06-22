@@ -51,9 +51,10 @@ module "service_ui" {
   health_check_path = "/health"
 
   environment_variables = [
-    { name = "RETAIL_UI_ENDPOINTS_CATALOG", value = "http://${module.service_catalog.alb_dns_name}" }
+    { name = "RETAIL_UI_ENDPOINTS_CATALOG", value = "http://${module.service_catalog.alb_dns_name}" },
+    { name = "RETAIL_UI_ENDPOINTS_CARTS", value = "http://${module.service_cart.alb_dns_name}" },
+    { name = "RETAIL_UI_ENDPOINTS_ORDERS", value = "http://${module.service_orders.alb_dns_name}" },
   ]
-
   # precisamos el rol de ejecución (LabRole en el Learner Lab)
   execution_role_arn = data.aws_iam_role.labrole.arn
 }
