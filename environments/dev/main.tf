@@ -51,7 +51,8 @@ module "service_ui" {
   health_check_path = "/health"
 
   environment_variables = [
-    { name = "RETAIL_UI_ENDPOINTS_CATALOG", value = "http://${module.service_catalog.alb_dns_name}" }
+    { name = "RETAIL_UI_ENDPOINTS_CATALOG", value = "http://${module.service_catalog.alb_dns_name}" },
+    { name = "RETAIL_UI_ENDPOINTS_CHECKOUT", value = "http://${module.service_checkout.alb_dns_name}" },
   ]
 
   # precisamos el rol de ejecución (LabRole en el Learner Lab)
@@ -190,6 +191,48 @@ module "service_cart" {
       name      = "CART_POSTGRES_PASSWORD"
       valueFrom = aws_secretsmanager_secret.db_password.arn
     }
+  ]
+
+  execution_role_arn = data.aws_iam_role.labrole.arn
+}
+
+module "redis" {
+  source = "../../modules/redis"
+
+  environment        = var.environment
+  vpc_id             = module.network.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  private_subnet_ids = module.network.private_subnet_ids
+  cluster_id         = module.ecs.cluster_id
+  execution_role_arn = data.aws_iam_role.labrole.arn
+}
+
+
+module "service_checkout" {
+  source = "../../modules/ecs_service"
+
+  service_name = "checkout"
+  environment  = var.environment
+  internal     = true
+
+  vpc_id             = module.network.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  cluster_id   = module.ecs.cluster_id
+  cluster_name = module.ecs.cluster_name
+
+  container_image   = "${module.ecr.repository_urls["checkout"]}:latest"
+  container_port    = 8080
+  cpu               = 256
+  memory            = 512
+  desired_count     = 1
+  health_check_path = "/health"
+
+  environment_variables = [
+    { name = "RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL", value = "redis://${module.redis.redis_endpoint}:6379" },
+    { name = "RETAIL_CHECKOUT_ENDPOINTS_ORDERS", value = "http://${module.service_orders.alb_dns_name}" },
   ]
 
   execution_role_arn = data.aws_iam_role.labrole.arn
