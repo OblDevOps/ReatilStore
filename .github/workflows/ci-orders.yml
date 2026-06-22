@@ -148,3 +148,177 @@ jobs:
         with:
           name: newman-report-orders
           path: tests/postman/reports/orders-report.html
+
+  # Construcción, análisis de imagen y push a ECR
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sast, sca, tests]
+    if: github.event_name != 'pull_request'
+
+    outputs:
+      image_uri: ${{ steps.push.outputs.image_uri }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build Docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            --label "git.sha=${{ github.sha }}" \
+            --label "git.branch=${{ github.ref_name }}" \
+            --label "build.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t "$REGISTRY/orders:${{ github.sha }}" \
+            -t "$REGISTRY/orders:latest" \
+            src/orders
+
+      - name: Run Trivy (image)
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/orders:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@45f27363d4ff7d6b16baa0516490f10c52bdd5fc # master
+        with:
+          projectBaseDir: src/orders
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Push image to ECR
+        id: push
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker push "$REGISTRY/orders:${{ github.sha }}"
+          docker push "$REGISTRY/orders:latest"
+          echo "image_uri=$REGISTRY/orders:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  # Despliegue a dev y test en paralelo (automático)
+  deploy-dev:
+    name: Deploy → dev
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to dev
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/orders:dev"
+          docker push "$REGISTRY/orders:dev"
+
+      - name: Update ECS service (dev)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-dev \
+            --service orders \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  deploy-test:
+    name: Deploy → test
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to test
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/orders:test"
+          docker push "$REGISTRY/orders:test"
+
+      - name: Update ECS service (test)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-test \
+            --service orders \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  # Despliegue a prod (requiere aprobación manual en GitHub Environments)
+  deploy-prod:
+    name: Deploy → prod
+    needs: [deploy-dev, deploy-test]
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to prod
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/orders:prod"
+          docker push "$REGISTRY/orders:prod"
+
+      - name: Update ECS service (prod)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-prod \
+            --service orders \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
