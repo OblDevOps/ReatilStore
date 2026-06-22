@@ -75,3 +75,76 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: '1'
           ignore-unfixed: true
+
+  # Pruebas de integración con Newman
+  tests:
+    name: Integration Tests (Newman)
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: retail_user
+          POSTGRES_PASSWORD: retail_pass
+          POSTGRES_DB: orders
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: src/orders/go.mod
+          cache-dependency-path: src/orders/go.sum
+
+      - name: Build orders binary
+        working-directory: src/orders
+        run: go build -o orders .
+
+      - name: Start orders service
+        working-directory: src/orders
+        run: ./orders &
+        env:
+          PORT: 8080
+          RETAIL_ORDERS_PERSISTENCE_ENDPOINT: localhost:5432
+          RETAIL_ORDERS_PERSISTENCE_USERNAME: retail_user
+          RETAIL_ORDERS_PERSISTENCE_PASSWORD: retail_pass
+          RETAIL_ORDERS_PERSISTENCE_NAME: orders
+
+      - name: Wait for orders to be ready
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/health; then
+              echo "Orders is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/15)"
+            sleep 2
+          done
+          echo "Orders never became ready"
+          exit 1
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Newman tests
+        run: |
+          newman run tests/postman/orders.postman_collection.json \
+            --reporters cli,htmlextra \
+            --reporter-htmlextra-export tests/postman/reports/orders-report.html \
+            --bail
+
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: newman-report-orders
+          path: tests/postman/reports/orders-report.html

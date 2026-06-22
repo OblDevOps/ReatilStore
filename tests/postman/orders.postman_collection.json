@@ -1,0 +1,121 @@
+{
+  "info": {
+    "name": "Orders API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Body is OK', function () {",
+              "  pm.expect(pm.response.text()).to.equal('OK');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "List orders (empty)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Response is an array', function () {",
+              "  pm.expect(pm.response.json()).to.be.an('array');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/orders"
+      }
+    },
+    {
+      "name": "Create order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "});",
+              "pm.test('Order has required fields', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('id');",
+              "  pm.expect(body).to.have.property('firstName');",
+              "  pm.expect(body).to.have.property('items');",
+              "  pm.expect(body.items).to.be.an('array').with.lengthOf(1);",
+              "});",
+              "pm.collectionVariables.set('orderId', pm.response.json().id);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/orders",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"shippingAddress\": {\n    \"firstName\": \"Juan\",\n    \"lastName\": \"Perez\",\n    \"email\": \"juan@example.com\",\n    \"address1\": \"Av. 18 de Julio 1234\",\n    \"address2\": \"\",\n    \"city\": \"Montevideo\",\n    \"state\": \"Montevideo\",\n    \"zipCode\": \"11000\"\n  },\n  \"items\": [\n    {\n      \"productId\": \"product-001\",\n      \"name\": \"Laptop\",\n      \"quantity\": 1,\n      \"price\": 150000\n    }\n  ]\n}"
+        }
+      }
+    },
+    {
+      "name": "List orders (with data)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Response contains created order', function () {",
+              "  var orders = pm.response.json();",
+              "  pm.expect(orders).to.be.an('array');",
+              "  pm.expect(orders.length).to.be.above(0);",
+              "  var order = orders.find(o => o.id === pm.collectionVariables.get('orderId'));",
+              "  pm.expect(order).to.not.be.undefined;",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/orders"
+      }
+    }
+  ]
+}
