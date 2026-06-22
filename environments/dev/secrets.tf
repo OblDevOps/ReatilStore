@@ -9,7 +9,7 @@ resource "aws_secretsmanager_secret_version" "db_password" {
 }
 
 resource "aws_secretsmanager_secret" "admin_password" {
-  name                    = "retailstore/dev/admin-password"
+  name                    = "retailstore/${var.environment}/admin-password"
   recovery_window_in_days = 0
 }
 
@@ -19,7 +19,7 @@ resource "aws_secretsmanager_secret_version" "admin_password" {
 }
 
 resource "aws_secretsmanager_secret" "admin_jwt_secret" {
-  name                    = "retailstore/dev/admin-jwt-secret"
+  name                    = "retailstore/${var.environment}/admin-jwt-secret"
   recovery_window_in_days = 0
 }
 
