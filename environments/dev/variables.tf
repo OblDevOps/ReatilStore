@@ -55,3 +55,9 @@ variable "admin_jwt_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "admin_username" {
+  description = "Nombre de usuario del administrador"
+  type        = string
+  default     = "admin"
+}

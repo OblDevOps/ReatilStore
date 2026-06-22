@@ -13,3 +13,5 @@ availability_zones = ["us-east-1a", "us-east-1b"]
 repository_names = ["ui", "catalog", "cart", "checkout", "orders", "admin", "db"]
 
 cluster_name = "retailstore-dev"
+
+admin_username = "admin"
