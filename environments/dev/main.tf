@@ -117,3 +117,80 @@ module "service_catalog" {
 
   execution_role_arn = data.aws_iam_role.labrole.arn
 }
+
+module "service_orders" {
+  source = "../../modules/ecs_service"
+
+  service_name = "orders"
+  environment  = var.environment
+  internal     = true
+
+  vpc_id             = module.network.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  cluster_id   = module.ecs.cluster_id
+  cluster_name = module.ecs.cluster_name
+
+  container_image   = "${module.ecr.repository_urls["orders"]}:latest"
+  container_port    = 8080
+  cpu               = 256
+  memory            = 512
+  desired_count     = 1
+  health_check_path = "/health"
+
+  environment_variables = [
+    { name = "RETAIL_ORDERS_PERSISTENCE_ENDPOINT", value = "${module.database.db_endpoint}:5432" },
+    { name = "RETAIL_ORDERS_PERSISTENCE_NAME", value = "orders" },
+    { name = "RETAIL_ORDERS_PERSISTENCE_USERNAME", value = "retail_user" },
+  ]
+
+  secret_arns = [
+    {
+      name      = "RETAIL_ORDERS_PERSISTENCE_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.db_password.arn
+    }
+  ]
+
+  execution_role_arn = data.aws_iam_role.labrole.arn
+}
+
+module "service_cart" {
+  source = "../../modules/ecs_service"
+
+  service_name = "cart"
+  environment  = var.environment
+  internal     = true
+
+  vpc_id             = module.network.vpc_id
+  vpc_cidr           = var.vpc_cidr
+  public_subnet_ids  = module.network.public_subnet_ids
+  private_subnet_ids = module.network.private_subnet_ids
+
+  cluster_id   = module.ecs.cluster_id
+  cluster_name = module.ecs.cluster_name
+
+  container_image   = "${module.ecr.repository_urls["cart"]}:latest"
+  container_port    = 8080
+  cpu               = 256
+  memory            = 512
+  desired_count     = 1
+  health_check_path = "/health"
+
+  environment_variables = [
+    { name = "CART_POSTGRES_HOST", value = module.database.db_endpoint },
+    { name = "CART_POSTGRES_PORT", value = "5432" },
+    { name = "CART_POSTGRES_DB", value = "cartdb" },
+    { name = "CART_POSTGRES_USER", value = "retail_user" },
+  ]
+
+  secret_arns = [
+    {
+      name      = "CART_POSTGRES_PASSWORD"
+      valueFrom = aws_secretsmanager_secret.db_password.arn
+    }
+  ]
+
+  execution_role_arn = data.aws_iam_role.labrole.arn
+}

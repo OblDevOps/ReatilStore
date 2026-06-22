@@ -5,6 +5,8 @@
 *.tfstate.*
 crash.log
 crash.*.log
+node_modules/
+**/secrets.auto.tfvars
 *.tfplan
 override.tf
 override.tf.json
