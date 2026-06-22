@@ -1,2 +1,3 @@
-FROM postgres:16
+FROM postgres:16-alpine
 COPY init-db.sql /docker-entrypoint-initdb.d/init-db.sql
+USER postgres
