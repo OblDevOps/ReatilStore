@@ -1,6 +1,6 @@
 # security group del ALB. Acepta tráfico HTTP desde internet
 resource "aws_security_group" "alb" {
-  name        = "${var.service_name}-alb-sg"
+  name        = "${var.service_name}-${var.environment}-alb-sg"
   description = "Permite HTTP al ALB"
   vpc_id      = var.vpc_id
 
@@ -20,14 +20,14 @@ resource "aws_security_group" "alb" {
   }
 
   tags = {
-    Name        = "${var.service_name}-alb-sg"
+    Name        = "${var.service_name}-${var.environment}-alb-sg"
     Environment = var.environment
   }
 }
 
 # security gruop de la tarea ECS. acepta solo tráfico desde el ALB
 resource "aws_security_group" "task" {
-  name        = "${var.service_name}-task-sg"
+  name        = "${var.service_name}-${var.environment}-task-sg"
   description = "Permite trafico solo desde el ALB a la tarea"
   vpc_id      = var.vpc_id
 
@@ -47,7 +47,7 @@ resource "aws_security_group" "task" {
   }
 
   tags = {
-    Name        = "${var.service_name}-task-sg"
+    Name        = "${var.service_name}-${var.environment}-task-sg"
     Environment = var.environment
   }
 }
@@ -79,7 +79,7 @@ resource "aws_ecs_task_definition" "main" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/${var.service_name}"
+          "awslogs-group"         = "/ecs/${var.environment}/${var.service_name}"
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -95,14 +95,14 @@ resource "aws_ecs_task_definition" "main" {
 
 # Application Load Balancer. recibe el tráfico de internet y lo reparte entre las tareas
 resource "aws_lb" "main" {
-  name               = "${var.service_name}-alb"
+  name               = "${var.service_name}-${var.environment}-alb"
   internal           = var.internal
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.id]
   subnets            = var.internal ? var.private_subnet_ids : var.public_subnet_ids # dependiendo de interno o publico
 
   tags = {
-    Name        = "${var.service_name}-alb"
+    Name        = "${var.service_name}-${var.environment}-alb"
     Environment = var.environment
   }
 }
@@ -110,7 +110,7 @@ resource "aws_lb" "main" {
 
 # Target Group: agrupa las tareas y define el health check
 resource "aws_lb_target_group" "main" {
-  name        = "${var.service_name}-tg"
+  name        = "${var.service_name}-${var.environment}-tg"
   port        = var.container_port
   protocol    = "HTTP"
   vpc_id      = var.vpc_id
@@ -126,7 +126,7 @@ resource "aws_lb_target_group" "main" {
   }
 
   tags = {
-    Name        = "${var.service_name}-tg"
+    Name        = "${var.service_name}-${var.environment}-tg"
     Environment = var.environment
   }
 }
@@ -145,11 +145,11 @@ resource "aws_lb_listener" "main" {
 
 # Log Group de CloudWatch. aca es donde van los logs del contenedor
 resource "aws_cloudwatch_log_group" "main" {
-  name              = "/ecs/${var.service_name}"
+  name              = "/ecs/${var.environment}/${var.service_name}"
   retention_in_days = 7
 
   tags = {
-    Name        = "/ecs/${var.service_name}"
+    Name        = "/ecs/${var.environment}/${var.service_name}"
     Environment = var.environment
   }
 }

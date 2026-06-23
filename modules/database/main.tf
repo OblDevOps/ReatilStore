@@ -1,6 +1,6 @@
 # Security group de Postgres. acepta conexiones al puerto 5432 desde la VPC
 resource "aws_security_group" "db" {
-  name        = "postgres-db-sg"
+  name        = "postgres-${var.environment}-db-sg"
   description = "Permite conexiones a Postgres desde la VPC"
   vpc_id      = var.vpc_id
 
@@ -20,17 +20,17 @@ resource "aws_security_group" "db" {
   }
 
   tags = {
-    Name        = "postgres-db-sg"
+    Name        = "postgres-${var.environment}-db-sg"
     Environment = var.environment
   }
 }
 
 resource "aws_cloudwatch_log_group" "db" {
-  name              = "/ecs/postgres"
+  name              = "/ecs/${var.environment}/postgres"
   retention_in_days = 7
 
   tags = {
-    Name        = "/ecs/postgres"
+    Name        = "/ecs/${var.environment}/postgres"
     Environment = var.environment
   }
 }
@@ -71,7 +71,7 @@ resource "aws_ecs_task_definition" "db" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/postgres"
+          "awslogs-group"         = "/ecs/${var.environment}/postgres"
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -87,20 +87,20 @@ resource "aws_ecs_task_definition" "db" {
 
 # network load balancer interno para postgres (usa tcp)
 resource "aws_lb" "db" {
-  name               = "postgres-nlb"
+  name               = "postgres-${var.environment}-nlb"
   internal           = true
   load_balancer_type = "network" #trabaja en tcp, es necesario para postgres
   subnets            = var.private_subnet_ids
 
   tags = {
-    Name        = "postgres-nlb"
+    Name        = "postgres-${var.environment}-nlb"
     Environment = var.environment
   }
 }
 
 # Target Group TCP para Postgres
 resource "aws_lb_target_group" "db" {
-  name        = "postgres-tg"
+  name        = "postgres-${var.environment}-tg"
   port        = 5432
   protocol    = "TCP"
   vpc_id      = var.vpc_id
@@ -115,7 +115,7 @@ resource "aws_lb_target_group" "db" {
   }
 
   tags = {
-    Name        = "postgres-tg"
+    Name        = "postgres-${var.environment}-tg"
     Environment = var.environment
   }
 }

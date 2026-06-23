@@ -1,6 +1,6 @@
 # Security group de Redis
 resource "aws_security_group" "redis" {
-  name        = "redis-sg"
+  name        = "redis-${var.environment}-sg"
   description = "Permite conexiones a Redis desde la VPC"
   vpc_id      = var.vpc_id
 
@@ -20,17 +20,17 @@ resource "aws_security_group" "redis" {
   }
 
   tags = {
-    Name        = "redis-sg"
+    Name        = "redis-${var.environment}-sg"
     Environment = var.environment
   }
 }
 
 resource "aws_cloudwatch_log_group" "redis" {
-  name              = "/ecs/redis"
+  name              = "/ecs/${var.environment}/redis"
   retention_in_days = 7
 
   tags = {
-    Name        = "/ecs/redis"
+    Name        = "/ecs/${var.environment}/redis"
     Environment = var.environment
   }
 }
@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "redis" {
       logConfiguration = {
         logDriver = "awslogs"
         options = {
-          "awslogs-group"         = "/ecs/redis"
+          "awslogs-group"         = "/ecs/${var.environment}/redis"
           "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "ecs"
         }
@@ -72,19 +72,19 @@ resource "aws_ecs_task_definition" "redis" {
 }
 
 resource "aws_lb" "redis" {
-  name               = "redis-nlb"
+  name               = "redis-${var.environment}-nlb"
   internal           = true
   load_balancer_type = "network"
   subnets            = var.private_subnet_ids
 
   tags = {
-    Name        = "redis-nlb"
+    Name        = "redis-${var.environment}-nlb"
     Environment = var.environment
   }
 }
 
 resource "aws_lb_target_group" "redis" {
-  name        = "redis-tg"
+  name        = "redis-${var.environment}-tg"
   port        = 6379
   protocol    = "TCP"
   vpc_id      = var.vpc_id
@@ -99,7 +99,7 @@ resource "aws_lb_target_group" "redis" {
   }
 
   tags = {
-    Name        = "redis-tg"
+    Name        = "redis-${var.environment}-tg"
     Environment = var.environment
   }
 }
