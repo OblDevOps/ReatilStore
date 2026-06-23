@@ -264,7 +264,7 @@ module "service_admin" {
     { name = "DB_HOST", value = module.database.db_endpoint },
     { name = "DB_PORT", value = "5432" },
     { name = "DB_USER", value = "retail_user" },
-    { name = "ADMIN_USERNAME", value = "admin" },
+    { name = "ADMIN_USERNAME", value = var.admin_username },
   ]
 
   secret_arns = [
