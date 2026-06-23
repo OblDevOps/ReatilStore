@@ -12,10 +12,10 @@ module "network" {
   availability_zones = var.availability_zones
 }
 
-module "ecr" {
-  source           = "../../modules/ecr"
-  repository_names = var.repository_names
-  environment      = var.environment
+# Los repos ECR son compartidos entre ambientes (creados y gestionados por dev)
+data "aws_ecr_repository" "repos" {
+  for_each = toset(var.repository_names)
+  name     = each.value
 }
 
 module "ecs" {
@@ -41,7 +41,7 @@ module "service_ui" {
   cluster_name = module.ecs.cluster_name
 
 
-  container_image = "${module.ecr.repository_urls["ui"]}:latest"
+  container_image = "${data.aws_ecr_repository.repos["ui"].repository_url}:latest"
 
   # configuración del contenedor
   container_port    = 8080
@@ -71,7 +71,7 @@ module "database" {
   private_subnet_ids = module.network.private_subnet_ids
   cluster_id         = module.ecs.cluster_id
 
-  container_image    = "${module.ecr.repository_urls["db"]}:latest"
+  container_image    = "${data.aws_ecr_repository.repos["db"].repository_url}:latest"
   execution_role_arn = data.aws_iam_role.labrole.arn
 
   db_secret_arn = aws_secretsmanager_secret.db_password.arn
@@ -93,7 +93,7 @@ module "service_catalog" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image = "${module.ecr.repository_urls["catalog"]}:latest"
+  container_image = "${data.aws_ecr_repository.repos["catalog"].repository_url}:latest"
 
   container_port    = 8080
   cpu               = 256
@@ -135,7 +135,7 @@ module "service_orders" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["orders"]}:latest"
+  container_image   = "${data.aws_ecr_repository.repos["orders"].repository_url}:latest"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -173,7 +173,7 @@ module "service_cart" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["cart"]}:latest"
+  container_image   = "${data.aws_ecr_repository.repos["cart"].repository_url}:latest"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -224,7 +224,7 @@ module "service_checkout" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["checkout"]}:latest"
+  container_image   = "${data.aws_ecr_repository.repos["checkout"].repository_url}:latest"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -253,7 +253,7 @@ module "service_admin" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["admin"]}:latest"
+  container_image   = "${data.aws_ecr_repository.repos["admin"].repository_url}:latest"
   container_port    = 8080
   cpu               = 256
   memory            = 512
