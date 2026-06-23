@@ -1,30 +1,39 @@
 variable "environment" {
-  type = string
+  description = "Ambiente: dev, test o prod"
+  type        = string
 }
 variable "vpc_id" {
-  type = string
+  description = "ID de la VPC"
+  type        = string
 }
 variable "vpc_cidr" {
-  type = string
+  description = "CIDR de la VPC, para restringir el security group al tráfico interno"
+  type        = string
 }
 variable "private_subnet_ids" {
-  type = list(string)
+  description = "IDs de las subnets privadas donde corren las tareas y el NLB"
+  type        = list(string)
 }
 variable "cluster_id" {
-  type = string
+  description = "ID del cluster ECS"
+  type        = string
 }
 variable "execution_role_arn" {
-  type = string
+  description = "ARN del rol de ejecución (LabRole)"
+  type        = string
 }
 variable "cpu" {
-  type    = number
-  default = 256
+  description = "CPU para la tarea Fargate"
+  type        = number
+  default     = 256
 }
 variable "memory" {
-  type    = number
-  default = 512
+  description = "Memoria para la tarea Fargate en MB"
+  type        = number
+  default     = 512
 }
 variable "aws_region" {
-  type    = string
-  default = "us-east-1"
+  description = "Región de AWS para los logs de CloudWatch"
+  type        = string
+  default     = "us-east-1"
 }
