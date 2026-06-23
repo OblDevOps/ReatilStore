@@ -1,0 +1,150 @@
+{
+  "info": {
+    "name": "Checkout API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8080"
+    },
+    {
+      "key": "customerId",
+      "value": "customer-001"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health check",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Service is ok', function () {",
+              "  pm.expect(pm.response.json().status).to.equal('ok');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/health"
+      }
+    },
+    {
+      "name": "Get checkout (not found)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 404', function () {",
+              "  pm.response.to.have.status(404);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/checkout/{{customerId}}"
+      }
+    },
+    {
+      "name": "Update checkout (create)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Checkout has required fields', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('subtotal', 100000);",
+              "  pm.expect(body).to.have.property('paymentId');",
+              "  pm.expect(body).to.have.property('paymentToken');",
+              "  pm.expect(body.items).to.be.an('array').with.lengthOf(1);",
+              "});",
+              "pm.test('Shipping rates are provided', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.shippingRates).to.have.property('rates');",
+              "  pm.expect(body.shippingRates.rates).to.be.an('array').with.lengthOf(2);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/checkout/{{customerId}}/update",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"items\": [\n    {\n      \"id\": \"product-001\",\n      \"name\": \"Laptop\",\n      \"quantity\": 1,\n      \"price\": 100000\n    }\n  ],\n  \"shippingAddress\": {\n    \"firstName\": \"Juan\",\n    \"lastName\": \"Perez\",\n    \"address1\": \"Av. 18 de Julio 1234\",\n    \"city\": \"Montevideo\",\n    \"state\": \"Montevideo\",\n    \"zip\": \"11000\",\n    \"email\": \"juan@example.com\"\n  }\n}"
+        }
+      }
+    },
+    {
+      "name": "Get checkout (found)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Checkout has items and subtotal', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body.items).to.be.an('array').with.lengthOf(1);",
+              "  pm.expect(body.subtotal).to.equal(100000);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/checkout/{{customerId}}"
+      }
+    },
+    {
+      "name": "Submit checkout",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 200', function () {",
+              "  pm.response.to.have.status(200);",
+              "});",
+              "pm.test('Submitted checkout has orderId and email', function () {",
+              "  var body = pm.response.json();",
+              "  pm.expect(body).to.have.property('orderId');",
+              "  pm.expect(body.email).to.equal('juan@example.com');",
+              "  pm.expect(body.subtotal).to.equal(100000);",
+              "  pm.expect(body.items).to.be.an('array').with.lengthOf(1);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "url": "{{baseUrl}}/checkout/{{customerId}}/submit"
+      }
+    }
+  ]
+}
