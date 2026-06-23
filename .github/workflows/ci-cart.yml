@@ -75,3 +75,49 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
+
+  # Pruebas de integración con Newman
+  tests:
+    name: Integration Tests (Newman)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install cart dependencies
+        run: pip install -r src/cart/requirements.txt
+
+      - name: Start cart service
+        working-directory: src/cart
+        run: uvicorn app.main:app --host 0.0.0.0 --port 8080 &
+        env:
+          CART_PERSISTENCE_PROVIDER: in-memory
+
+      - name: Wait for cart to be ready
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/health; then
+              echo "Cart is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/15)"
+            sleep 2
+          done
+          echo "Cart never became ready"
+          exit 1
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Newman tests
+        run: |
+          newman run tests/postman/cart.postman_collection.json \
+            --reporters cli,htmlextra \
+            --reporter-htmlextra-export tests/postman/reports/cart-report.html \
+            --bail
+
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: newman-report-cart
+          path: tests/postman/reports/cart-report.html
