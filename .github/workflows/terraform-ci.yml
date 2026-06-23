@@ -103,6 +103,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
     needs: validate
     runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment }}
     defaults:
       run:
         working-directory: environments/${{ github.event.inputs.environment }}
