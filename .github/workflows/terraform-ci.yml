@@ -20,8 +20,8 @@ on:
         type: choice
         options:
           - dev
-          # - test    <- descomentar cuando exista environments/test
-          # - prod    <- descomentar cuando exista environments/prod
+          - test
+          - prod
       action:
         description: "Qué hacer en el ambiente elegido"
         required: true
@@ -46,7 +46,7 @@ env:
   TF_VAR_admin_jwt_secret: ${{ secrets.ADMIN_JWT_SECRET }}
 
 jobs:
-  # ── Job 1: validación (corre siempre, en push, PR y disparo manual) ──
+  #validación. ejecuta siempre, en push, PR y trigger manual
   validate:
     name: Validate & Plan
     runs-on: ubuntu-latest
@@ -97,7 +97,7 @@ jobs:
         if: steps.plan.outcome == 'failure'
         run: exit 1
 
-  # ── Job 2: apply MANUAL (solo cuando lo disparás a mano y elegís "apply") ──
+  #apply manual. dispara al elegir la opción apply
   apply:
     name: Apply (manual)
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.action == 'apply'
@@ -119,22 +119,73 @@ jobs:
       - name: Terraform Apply
         run: terraform apply -var-file="terraform.tfvars" -auto-approve
 
-  # ─────────────────────────────────────────────────────────────────
-  # SEMANA 5 — promoción entre ambientes (descomentar al tener test/prod):
-  #
-  # apply-auto-dev:
-  #   name: Apply automático (dev/test)
-  #   if: github.event_name == 'push'
-  #   needs: validate
-  #   runs-on: ubuntu-latest
-  #   ... (apply directo a dev/test al mergear a main)
-  #
-  # apply-prod:
-  #   name: Apply prod (con aprobación)
-  #   if: github.event_name == 'workflow_dispatch' && inputs.environment == 'prod'
-  #   needs: validate
-  #   environment: prod   # <- este "environment" con required reviewers
-  #                       #    es lo que frena y pide aprobación manual
-  #   runs-on: ubuntu-latest
-  #   ...
-  # ─────────────────────────────────────────────────────────────────
+  #apply automático a dev al mergear a main
+  apply-dev:
+    name: Apply → dev
+    if: github.event_name == 'push'
+    needs: validate
+    runs-on: ubuntu-latest
+    environment: dev
+    defaults:
+      run:
+        working-directory: environments/dev
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+
+  # apply automático a test después de que dev pase
+  apply-test:
+    name: Apply → test
+    if: github.event_name == 'push'
+    needs: apply-dev
+    runs-on: ubuntu-latest
+    environment: test
+    defaults:
+      run:
+        working-directory: environments/test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+
+  # apply a prod con aprobación requerida, después de que test pase
+  # configurar en: GitHub → Settings → Environments → prod → Required reviewers
+  apply-prod:
+    name: Apply → prod
+    if: github.event_name == 'push'
+    needs: apply-test
+    runs-on: ubuntu-latest
+    environment: prod
+    defaults:
+      run:
+        working-directory: environments/prod
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Apply
+        run: terraform apply -var-file="terraform.tfvars" -auto-approve
+
