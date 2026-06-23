@@ -85,7 +85,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: src/checkout
-        run: node .yarn/releases/yarn-4.11.0.cjs install
+        run: node .yarn/releases/yarn-4.11.0.cjs install --immutable
 
       - name: Build checkout
         working-directory: src/checkout
