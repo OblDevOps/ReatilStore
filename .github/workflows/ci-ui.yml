@@ -75,3 +75,52 @@ jobs:
           severity: CRITICAL,HIGH
           exit-code: "1"
           ignore-unfixed: true
+
+  # Pruebas de integración con Newman
+  tests:
+    name: Integration Tests (Newman)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install dependencies
+        working-directory: src/ui
+        run: npm ci
+
+      - name: Build UI
+        working-directory: src/ui
+        run: npm run build
+
+      - name: Start UI service
+        working-directory: src/ui
+        run: node dist/app.js &
+
+      - name: Wait for UI to be ready
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/health; then
+              echo "UI is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/15)"
+            sleep 2
+          done
+          echo "UI never became ready"
+          exit 1
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Newman tests
+        run: |
+          newman run tests/postman/ui.postman_collection.json \
+            --reporters cli,htmlextra \
+            --reporter-htmlextra-export tests/postman/reports/ui-report.html \
+            --bail
+
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: newman-report-ui
+          path: tests/postman/reports/ui-report.html
