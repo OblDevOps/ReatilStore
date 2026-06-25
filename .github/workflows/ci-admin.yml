@@ -59,3 +59,19 @@ jobs:
         if: always()
         with:
           sarif_file: semgrep-results.sarif
+
+  # Análisis de vulnerabilidades de dependencias con Trivy (filesystem)
+  sca:
+    name: SCA (Trivy filesystem)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run Trivy (filesystem — dependencies)
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
+        with:
+          scan-type: fs
+          scan-ref: src/admin
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
