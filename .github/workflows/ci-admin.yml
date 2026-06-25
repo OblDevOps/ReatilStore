@@ -192,3 +192,113 @@ jobs:
           docker push "$REGISTRY/admin:${{ github.sha }}"
           docker push "$REGISTRY/admin:latest"
           echo "image_uri=$REGISTRY/admin:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  # Despliegue a dev y test en paralelo (automático)
+  deploy-dev:
+    name: Deploy → dev
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to dev
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:dev"
+          docker push "$REGISTRY/admin:dev"
+
+      - name: Update ECS service (dev)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-dev \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  deploy-test:
+    name: Deploy → test
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to test
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:test"
+          docker push "$REGISTRY/admin:test"
+
+      - name: Update ECS service (test)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-test \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  # Despliegue a prod (requiere aprobación manual en GitHub Environments)
+  deploy-prod:
+    name: Deploy → prod
+    needs: [deploy-dev, deploy-test, build-and-push]
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to prod
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:prod"
+          docker push "$REGISTRY/admin:prod"
+
+      - name: Update ECS service (prod)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-prod \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
