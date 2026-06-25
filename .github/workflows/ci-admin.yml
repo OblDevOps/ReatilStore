@@ -1,0 +1,304 @@
+name: CI/CD - Admin
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/admin/**"
+      - ".github/workflows/ci-admin.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/admin/**"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  # Detector de secretos con TruffleHog
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect secrets (TruffleHog)
+        uses: trufflesecurity/trufflehog@9b6b5326bfe25dbd856eccc8a8275eb5dea7bd52 # main
+        with:
+          path: ./
+          base: ${{ github.event.before }}
+          head: ${{ github.event.after }}
+          extra_args: --only-verified
+
+  # Análisis estático de código con Semgrep
+  sast:
+    name: SAST (Semgrep)
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+    container:
+      image: semgrep/semgrep:1.167.0
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run Semgrep
+        run: |
+          semgrep scan \
+            --config=auto \
+            --sarif \
+            --output=semgrep-results.sarif \
+            src/admin
+        env:
+          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+
+      - name: Upload Semgrep SARIF
+        uses: github/codeql-action/upload-sarif@411bbbe57033eedfc1a82d68c01345aa96c737d7 # v4
+        if: always()
+        with:
+          sarif_file: semgrep-results.sarif
+
+  # Análisis de vulnerabilidades de dependencias con Trivy (filesystem)
+  sca:
+    name: SCA (Trivy filesystem)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Run Trivy (filesystem — dependencies)
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
+        with:
+          scan-type: fs
+          scan-ref: src/admin
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+  # Pruebas de integración con Newman
+  tests:
+    name: Integration Tests (Newman)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Install dependencies
+        working-directory: src/admin
+        run: npm ci
+
+      - name: Build admin
+        working-directory: src/admin
+        run: npm run build
+
+      - name: Start admin service
+        working-directory: src/admin
+        run: node dist/app.js &
+        env:
+          PORT: 8080
+          ADMIN_USERNAME: admin
+          ADMIN_PASSWORD: admin
+
+      - name: Wait for admin to be ready
+        run: |
+          for i in $(seq 1 15); do
+            if curl -sf http://localhost:8080/health; then
+              echo "Admin is up"
+              exit 0
+            fi
+            echo "Waiting... ($i/15)"
+            sleep 2
+          done
+          echo "Admin never became ready"
+          exit 1
+
+      - name: Install Newman
+        run: npm install -g newman newman-reporter-htmlextra
+
+      - name: Run Newman tests
+        run: |
+          newman run tests/postman/admin.postman_collection.json \
+            --reporters cli,htmlextra \
+            --reporter-htmlextra-export tests/postman/reports/admin-report.html \
+            --bail
+
+      - name: Upload Newman report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: newman-report-admin
+          path: tests/postman/reports/admin-report.html
+
+  # Construcción, análisis de imagen y push a ECR
+  build-and-push:
+    name: Build & Push
+    runs-on: ubuntu-latest
+    needs: [secrets-scan, sast, sca, tests]
+    if: github.event_name != 'pull_request'
+
+    outputs:
+      image_uri: ${{ steps.push.outputs.image_uri }}
+
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Build Docker image
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker build \
+            --label "git.sha=${{ github.sha }}" \
+            --label "git.branch=${{ github.ref_name }}" \
+            --label "build.date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            -t "$REGISTRY/admin:${{ github.sha }}" \
+            -t "$REGISTRY/admin:latest" \
+            src/admin
+
+      - name: Run Trivy (image)
+        uses: aquasecurity/trivy-action@cf5c088a69634cd13ccddc735d7926162c31f9a6 # master
+        with:
+          image-ref: ${{ steps.login-ecr.outputs.registry }}/admin:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@45f27363d4ff7d6b16baa0516490f10c52bdd5fc # master
+        with:
+          projectBaseDir: src/admin
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
+      - name: Push image to ECR
+        id: push
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+        run: |
+          docker push "$REGISTRY/admin:${{ github.sha }}"
+          docker push "$REGISTRY/admin:latest"
+          echo "image_uri=$REGISTRY/admin:${{ github.sha }}" >> $GITHUB_OUTPUT
+
+  # Despliegue a dev y test en paralelo (automático)
+  deploy-dev:
+    name: Deploy → dev
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: dev
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to dev
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:dev"
+          docker push "$REGISTRY/admin:dev"
+
+      - name: Update ECS service (dev)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-dev \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  deploy-test:
+    name: Deploy → test
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to test
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:test"
+          docker push "$REGISTRY/admin:test"
+
+      - name: Update ECS service (test)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-test \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+  # Despliegue a prod (requiere aprobación manual en GitHub Environments)
+  deploy-prod:
+    name: Deploy → prod
+    needs: [deploy-dev, deploy-test, build-and-push]
+    runs-on: ubuntu-latest
+    environment: prod
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@d539f0932e70871a027e9d5a9d8fc38589180a64 # v2
+
+      - name: Promote image to prod
+        env:
+          REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          SOURCE: ${{ needs.build-and-push.outputs.image_uri }}
+        run: |
+          docker pull "$SOURCE"
+          docker tag "$SOURCE" "$REGISTRY/admin:prod"
+          docker push "$REGISTRY/admin:prod"
+
+      - name: Update ECS service (prod)
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-prod \
+            --service admin \
+            --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
