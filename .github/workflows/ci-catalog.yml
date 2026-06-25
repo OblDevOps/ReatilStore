@@ -272,7 +272,7 @@ jobs:
   # Despliegue a prod (requiere aprobación manual en GitHub Environments)
   deploy-prod:
     name: Deploy → prod
-    needs: [deploy-dev, deploy-test]
+    needs: [deploy-dev, deploy-test, build-and-push]
     runs-on: ubuntu-latest
     environment: prod
 
