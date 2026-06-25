@@ -57,6 +57,25 @@
       }
     },
     {
+      "name": "Auth/me - sin token",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status is 401', function () {",
+              "  pm.response.to.have.status(401);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "url": "{{baseUrl}}/auth/me"
+      }
+    },
+    {
       "name": "Login - credenciales válidas",
       "event": [
         {
@@ -81,25 +100,6 @@
           "raw": "{\"username\": \"admin\", \"password\": \"admin\"}"
         },
         "url": "{{baseUrl}}/auth/login"
-      }
-    },
-    {
-      "name": "Auth/me - sin token",
-      "event": [
-        {
-          "listen": "test",
-          "script": {
-            "exec": [
-              "pm.test('Status is 401', function () {",
-              "  pm.response.to.have.status(401);",
-              "});"
-            ]
-          }
-        }
-      ],
-      "request": {
-        "method": "GET",
-        "url": "{{baseUrl}}/auth/me"
       }
     }
   ]
