@@ -97,7 +97,7 @@
         "header": [{ "key": "Content-Type", "value": "application/json" }],
         "body": {
           "mode": "raw",
-          "raw": "{\"username\": \"admin\", \"password\": \"admin\"}"
+          "raw": "{\"username\": \"admin\", \"password\": \"{{adminPassword}}\"}"
         },
         "url": "{{baseUrl}}/auth/login"
       }

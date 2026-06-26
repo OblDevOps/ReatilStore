@@ -117,8 +117,11 @@ jobs:
         run: npm install -g newman newman-reporter-htmlextra
 
       - name: Run Newman tests
+        env:
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
         run: |
           newman run tests/postman/admin.postman_collection.json \
+            --env-var "adminPassword=$ADMIN_PASSWORD" \
             --reporters cli,htmlextra \
             --reporter-htmlextra-export tests/postman/reports/admin-report.html \
             --bail
