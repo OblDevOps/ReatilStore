@@ -154,7 +154,7 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster retailstore-dev \
-            --service db \
+            --service postgres \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
@@ -190,7 +190,7 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster retailstore-test \
-            --service db \
+            --service postgres \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
@@ -226,6 +226,6 @@ jobs:
         run: |
           aws ecs update-service \
             --cluster retailstore-prod \
-            --service db \
+            --service postgres \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
