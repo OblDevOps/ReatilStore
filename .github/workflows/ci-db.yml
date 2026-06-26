@@ -1,0 +1,33 @@
+name: CI/CD - Database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/db/**"
+      - ".github/workflows/ci-db.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/db/**"
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+
+jobs:
+  secrets-scan:
+    name: Secrets Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect secrets (TruffleHog)
+        uses: trufflesecurity/trufflehog@9b6b5326bfe25dbd856eccc8a8275eb5dea7bd52 # main
+        with:
+          path: ./
+          base: ${{ github.event.before }}
+          head: ${{ github.event.after }}
+          extra_args: --only-verified
