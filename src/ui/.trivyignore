@@ -1,0 +1,4 @@
+# CVE-2026-12151: undici DoS via WebSocket en npm bundleado (usr/local/lib/node_modules/npm)
+# El npm interno nunca se ejecuta en produccion - el container arranca con "node dist/app.js"
+# Fix disponible en undici 6.27.0 pero aun no incluido en ninguna release de Node.js
+CVE-2026-12151
