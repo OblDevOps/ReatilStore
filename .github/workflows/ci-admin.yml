@@ -97,7 +97,8 @@ jobs:
         env:
           PORT: 8080
           ADMIN_USERNAME: admin
-          ADMIN_PASSWORD: admin
+          ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+          ADMIN_JWT_SECRET: ${{ secrets.ADMIN_JWT_SECRET }}
 
       - name: Wait for admin to be ready
         run: |

@@ -41,7 +41,7 @@ jobs:
         env:
           POSTGRES_DB: orders
           POSTGRES_USER: retail_user
-          POSTGRES_PASSWORD: testpassword
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
         ports:
           - 5432:5432
         options: >-
@@ -54,13 +54,13 @@ jobs:
 
       - name: Run init SQL
         env:
-          PGPASSWORD: testpassword
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           psql -h localhost -U retail_user -d orders -f src/db/init-db.sql
 
       - name: Verify databases and schema
         env:
-          PGPASSWORD: testpassword
+          PGPASSWORD: ${{ secrets.DB_PASSWORD }}
         run: |
           psql -h localhost -U retail_user -d catalogdb -c "SELECT 1"
           psql -h localhost -U retail_user -d cartdb -c "SELECT COUNT(*) FROM cart_items"
