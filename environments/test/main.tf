@@ -60,6 +60,13 @@ module "service_ui" {
   execution_role_arn = data.aws_iam_role.labrole.arn
 }
 
+# API Gateway delante del servicio UI con throttling nativo
+module "api_gateway_ui" {
+  source = "../../modules/apigateway"
+
+  service_name     = "${var.environment}-retailstore"
+  backend_dns_name = module.service_ui.alb_dns_name
+}
 
 # Base de datos PostgreSQL compartida (atras de nlb interno)
 module "database" {
