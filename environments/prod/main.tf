@@ -188,6 +188,7 @@ module "service_cart" {
   health_check_path = "/health"
 
   environment_variables = [
+    { name = "CART_PERSISTENCE_PROVIDER", value = "postgres" },
     { name = "CART_POSTGRES_HOST", value = module.database.db_endpoint },
     { name = "CART_POSTGRES_PORT", value = "5432" },
     { name = "CART_POSTGRES_DB", value = "cartdb" },
@@ -239,6 +240,7 @@ module "service_checkout" {
   health_check_path = "/health"
 
   environment_variables = [
+    { name = "RETAIL_CHECKOUT_PERSISTENCE_PROVIDER", value = "redis" },
     { name = "RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL", value = "redis://${module.redis.redis_endpoint}:6379" },
     { name = "RETAIL_CHECKOUT_ENDPOINTS_ORDERS", value = "http://${module.service_orders.alb_dns_name}" },
   ]
