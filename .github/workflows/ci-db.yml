@@ -158,6 +158,23 @@ jobs:
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for Postgres to stabilize (dev)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-dev \
+            --services postgres \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Restart DB-dependent services (dev)
+        run: |
+          for service in catalog orders cart admin; do
+            aws ecs update-service \
+              --cluster retailstore-dev \
+              --service $service \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+          done
+
   deploy-test:
     name: Deploy → test
     needs: build-and-push
@@ -194,6 +211,23 @@ jobs:
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for Postgres to stabilize (test)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-test \
+            --services postgres \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Restart DB-dependent services (test)
+        run: |
+          for service in catalog orders cart admin; do
+            aws ecs update-service \
+              --cluster retailstore-test \
+              --service $service \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+          done
+
   deploy-prod:
     name: Deploy → prod
     needs: [deploy-dev, deploy-test, build-and-push]
@@ -229,3 +263,20 @@ jobs:
             --service postgres \
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
+
+      - name: Wait for Postgres to stabilize (prod)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-prod \
+            --services postgres \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Restart DB-dependent services (prod)
+        run: |
+          for service in catalog orders cart admin; do
+            aws ecs update-service \
+              --cluster retailstore-prod \
+              --service $service \
+              --force-new-deployment \
+              --region ${{ env.AWS_REGION }}
+          done
