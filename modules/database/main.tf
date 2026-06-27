@@ -25,6 +25,77 @@ resource "aws_security_group" "db" {
   }
 }
 
+# Security group para EFS - permite NFS desde la VPC
+resource "aws_security_group" "efs" {
+  name        = "postgres-${var.environment}-efs-sg"
+  description = "Permite NFS desde la VPC para EFS de Postgres"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    description = "NFS desde la VPC"
+    from_port   = 2049
+    to_port     = 2049
+    protocol    = "tcp"
+    cidr_blocks = [var.vpc_cidr]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name        = "postgres-${var.environment}-efs-sg"
+    Environment = var.environment
+  }
+}
+
+# EFS File System para persistencia de datos de Postgres
+resource "aws_efs_file_system" "postgres" {
+  creation_token = "postgres-${var.environment}"
+  encrypted      = true
+
+  tags = {
+    Name        = "postgres-${var.environment}-efs"
+    Environment = var.environment
+  }
+}
+
+# Mount target por cada subnet privada para que ECS pueda montar EFS desde cualquier AZ
+resource "aws_efs_mount_target" "postgres" {
+  for_each = toset(var.private_subnet_ids)
+
+  file_system_id  = aws_efs_file_system.postgres.id
+  subnet_id       = each.value
+  security_groups = [aws_security_group.efs.id]
+}
+
+# Access point con UID/GID del usuario postgres en alpine (70/70)
+resource "aws_efs_access_point" "postgres" {
+  file_system_id = aws_efs_file_system.postgres.id
+
+  posix_user {
+    uid = 70
+    gid = 70
+  }
+
+  root_directory {
+    path = "/pgdata"
+    creation_info {
+      owner_uid   = 70
+      owner_gid   = 70
+      permissions = "700"
+    }
+  }
+
+  tags = {
+    Name        = "postgres-${var.environment}-ap"
+    Environment = var.environment
+  }
+}
+
 resource "aws_cloudwatch_log_group" "db" {
   name              = "/ecs/${var.environment}/postgres"
   retention_in_days = 7
@@ -44,6 +115,20 @@ resource "aws_ecs_task_definition" "db" {
   memory                   = var.memory
   execution_role_arn       = var.execution_role_arn
 
+  volume {
+    name = "postgres-data"
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.postgres.id
+      transit_encryption = "ENABLED"
+
+      authorization_config {
+        access_point_id = aws_efs_access_point.postgres.id
+        iam             = "DISABLED"
+      }
+    }
+  }
+
   container_definitions = jsonencode([
     {
       name      = "postgres"
@@ -59,12 +144,23 @@ resource "aws_ecs_task_definition" "db" {
 
       environment = [
         { name = "POSTGRES_USER", value = var.db_user },
-        { name = "POSTGRES_DB", value = var.db_name }
+        { name = "POSTGRES_DB", value = var.db_name },
+        # Subdirectorio dentro del mount para evitar conflictos con archivos del sistema de EFS
+        { name = "PGDATA", value = "/var/lib/postgresql/data/pgdata" }
       ]
+
       secrets = [
         {
           name      = "POSTGRES_PASSWORD"
           valueFrom = var.db_secret_arn
+        }
+      ]
+
+      mountPoints = [
+        {
+          sourceVolume  = "postgres-data"
+          containerPath = "/var/lib/postgresql/data"
+          readOnly      = false
         }
       ]
 
@@ -89,7 +185,7 @@ resource "aws_ecs_task_definition" "db" {
 resource "aws_lb" "db" {
   name               = "postgres-${var.environment}-nlb"
   internal           = true
-  load_balancer_type = "network" #trabaja en tcp, es necesario para postgres
+  load_balancer_type = "network"
   subnets            = var.private_subnet_ids
 
   tags = {
@@ -120,7 +216,6 @@ resource "aws_lb_target_group" "db" {
   }
 }
 
-# listner Tcp: el network loas balancer escucha en 5432 y reenvía al target group. como en ui pero con tcp en vz de http
 resource "aws_lb_listener" "db" {
   load_balancer_arn = aws_lb.db.arn
   port              = 5432
@@ -132,7 +227,7 @@ resource "aws_lb_listener" "db" {
   }
 }
 
-# ECS Service de Postgres: mantiene la tarea corriendo y la registra en el network load balancer
+# ECS Service de Postgres
 resource "aws_ecs_service" "db" {
   name            = "postgres"
   cluster         = var.cluster_id
@@ -152,7 +247,8 @@ resource "aws_ecs_service" "db" {
     container_port   = 5432
   }
 
-  depends_on = [aws_lb_listener.db]
+  # Esperar a que los mount targets estén listos antes de arrancar el servicio
+  depends_on = [aws_lb_listener.db, aws_efs_mount_target.postgres]
 
   tags = {
     Name        = "postgres"
