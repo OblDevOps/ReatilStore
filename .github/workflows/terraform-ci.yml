@@ -60,6 +60,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
+      - name: tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: environments/${{ github.event.inputs.environment || 'dev' }}
+          soft_fail: true
+
       - name: Terraform Format Check
         run: terraform fmt -check -recursive
         continue-on-error: true
