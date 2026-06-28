@@ -106,6 +106,177 @@ Los ambientes se gestionan íntegramente mediante **pipelines**. Todo merge a `m
 
 ---
 
+### Pipelines de CI/CD
+
+#### Estructura general
+
+Todos los pipelines de microservicios siguen una estructura uniforme de siete etapas. Los jobs de seguridad y testing corren en paralelo antes del build; los deploys a dev y test corren en paralelo entre sí; prod requiere aprobación manual a través de GitHub Environments.
+
+```
+secrets-scan ─┐
+sast          ├─► build-and-push ─► deploy-dev ─┐
+sca           │                    deploy-test ──┴─► deploy-prod
+tests         ─┘
+```
+
+#### Decisiones transversales
+
+**Filtrado por paths**
+
+Cada pipeline incluye un filtro `paths:` que lo dispara únicamente cuando cambian archivos del microservicio correspondiente o el propio archivo de workflow. Esto evita ejecuciones innecesarias en el monorepo donde un cambio en `src/catalog` no debería correr el pipeline de `src/orders`.
+
+**Acciones pinneadas por SHA**
+
+Todas las actions de terceros están referenciadas por su SHA de commit completo en lugar de un tag mutable (e.g., `@v4`). Esto protege contra ataques de supply chain donde un tag podría ser redirigido a un commit malicioso.
+
+**Trivy con `ignore-unfixed: true`**
+
+Tanto en el escaneo de filesystem (SCA) como en el de imagen, Trivy filtra vulnerabilidades para las cuales no existe un fix disponible, enfocando el resultado en las que realmente pueden remediarse actualizando dependencias.
+
+**TruffleHog con `--only-verified`**
+
+El detector de secretos solo reporta credenciales que puede verificar activamente contra una API externa (tokens de AWS, GitHub, Stripe, etc.). Esto reduce la cobertura frente a credenciales no verificables como pares usuario/contraseña simples, pero minimiza los falsos positivos que harían inviable el pipeline en la práctica.
+
+**Artefacto inmutable con promoción por etiquetas**
+
+La imagen Docker se construye una única vez en `build-and-push`, etiquetada con el SHA del commit. En cada deploy posterior se re-etiqueta (`:dev`, `:test`, `:prod`) sin reconstruir, garantizando que el artefacto que llega a producción es exactamente el mismo que fue escaneado y testeado.
+
+**Build solo en push, no en pull requests**
+
+El job `build-and-push` tiene la condición `if: github.event_name != 'pull_request'`. En PRs se ejecutan los jobs de seguridad y testing para dar feedback, pero no se construye ni despliega imagen alguna, evitando pushes a ECR desde ramas no mergeadas.
+
+---
+
+#### Pipeline: Catalog (`ci-catalog.yml`)
+
+**Testing sin base de datos**
+
+El servicio arranca con `RETAIL_CATALOG_PERSISTENCE_PROVIDER: in-memory`, lo que elimina la necesidad de PostgreSQL en CI. Este modo está implementado en el microservicio y permite validar toda la API sin dependencias externas.
+
+**Build de Go**
+
+Se usa `CGO_ENABLED=1` para la compilación, requerido por dependencias que incluyen código C. La versión de Go se obtiene del archivo `go.mod` del proyecto, garantizando consistencia entre desarrollo y CI.
+
+---
+
+#### Pipeline: Orders (`ci-orders.yml`)
+
+**Dependencia de PostgreSQL real en tests**
+
+A diferencia de catalog, orders no implementa un provider in-memory y requiere una instancia real de PostgreSQL. Se resuelve con un service container de GitHub Actions (`postgres:16-alpine`) que arranca junto al job.
+
+**Credenciales hardcodeadas en CI**
+
+Las credenciales del PostgreSQL de testing (`retail_user` / `retail_pass`) están hardcodeadas en el workflow. Esto es aceptable porque son exclusivas del entorno efímero de CI, el contenedor vive solo durante el job y no es accesible desde fuera del runner, y no se reusan en ningún ambiente productivo.
+
+---
+
+#### Pipeline: Cart (`ci-cart.yml`)
+
+**Testing sin base de datos**
+
+El servicio arranca con `CART_PERSISTENCE_PROVIDER: in-memory`, eliminando la necesidad de PostgreSQL en CI, al igual que catalog.
+
+**Runtime Python**
+
+Cart es un microservicio Python/FastAPI que se inicia directamente con `uvicorn` sin paso de compilación previo. Las dependencias se instalan con `pip install -r requirements.txt`.
+
+---
+
+#### Pipeline: Checkout (`ci-checkout.yml`)
+
+**Yarn 4 Berry**
+
+El proyecto checkout usa Yarn 4 (Berry) con Plug'n'Play. En lugar de invocar el comando global `yarn`, el pipeline llama directamente al binario del repositorio: `node .yarn/releases/yarn-4.11.0.cjs`. Esto garantiza que se usa exactamente la versión de Yarn definida en el proyecto, independientemente de lo instalado en el runner.
+
+**Excepción Trivy (imagen): `src/checkout/.trivyignore`**
+
+Trivy detectó `CVE-2026-12151` (HIGH) en `undici`, una librería HTTP bundleada dentro del binario de `npm` que viene incluido en la imagen base de Node.js (`/usr/local/lib/node_modules/npm`). La vulnerabilidad es un DoS a través de WebSockets.
+
+Se decidió suprimir esta CVE porque:
+- El `npm` interno de la imagen nunca se ejecuta en producción; el contenedor arranca directamente con `node dist/main.js`
+- Al no ejecutarse `npm`, el código vulnerable de `undici` nunca es alcanzable
+- El fix existe en `undici` 6.27.0 pero aún no está incluido en ninguna release de Node.js
+
+El archivo debe ser removido cuando Node.js publique una versión que incluya `undici` ≥ 6.27.0.
+
+---
+
+#### Pipeline: UI (`ci-ui.yml`)
+
+**Sin dependencias externas en tests**
+
+El microservicio UI puede arrancar y responder al health check sin conectarse a ningún backend, lo que simplifica los tests de integración al no requerir servicios adicionales.
+
+**Excepción Trivy (imagen): `src/ui/.trivyignore`**
+
+Trivy detectó `CVE-2026-12151` (HIGH) en `undici`, bundleado dentro de `npm` en la imagen base de Node.js. La misma situación que checkout y admin: el `npm` interno nunca se ejecuta en producción (el contenedor arranca con `node dist/app.js`), por lo que el código vulnerable no es alcanzable. El archivo debe removerse cuando Node.js incluya `undici` ≥ 6.27.0.
+
+---
+
+#### Pipeline: Admin (`ci-admin.yml`)
+
+**Gestión de credenciales**
+
+El microservicio admin implementa autenticación propia con usuario/contraseña y JWT. En CI las credenciales se manejan así:
+
+- `ADMIN_USERNAME`: hardcodeado como `admin` en el workflow (valor de testing conocido y sin impacto en producción)
+- `ADMIN_PASSWORD`: tomado del GitHub Secret `ADMIN_PASSWORD`
+- `ADMIN_JWT_SECRET`: tomado del GitHub Secret `ADMIN_JWT_SECRET`
+
+**Paso de credenciales a Newman**
+
+Para evitar la interpolación directa del secret en el script de shell, el secret se expone primero como variable de entorno del step y luego se pasa a Newman mediante `--env-var`:
+
+```yaml
+env:
+  ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+run: |
+  newman run ... --env-var "adminPassword=$ADMIN_PASSWORD"
+```
+
+La colección de Newman usa `{{adminPassword}}` en el body del request de login, que Newman resuelve con el valor pasado por `--env-var`. Este patrón evita riesgos de inyección de shell que existirían si el secret se interpolara directamente en el comando.
+
+**Sincronización de credenciales en producción**
+
+Las credenciales del admin en ECS provienen de AWS Secrets Manager, cuyo valor es gestionado por Terraform vía el GitHub Secret `ADMIN_PASSWORD`. Si el secret se actualiza, es necesario: (1) re-aplicar Terraform para actualizar Secrets Manager, y (2) forzar un nuevo deployment de ECS para que los contenedores lean el nuevo valor. Actualizar solo el GitHub Secret no es suficiente.
+
+**Excepción Trivy (imagen): `src/admin/.trivyignore`**
+
+Trivy detectó `CVE-2026-12151` (HIGH) en `undici`, bundleado dentro de `npm` en la imagen base de Node.js. La misma situación que checkout y ui: el `npm` interno nunca se ejecuta en producción (el contenedor arranca con `node dist/app.js`), por lo que el código vulnerable no es alcanzable. El archivo debe removerse cuando Node.js incluya `undici` ≥ 6.27.0.
+
+---
+
+#### Pipeline: DB (`ci-db.yml`)
+
+El pipeline de DB gestiona la imagen de inicialización de PostgreSQL que carga el esquema SQL al arrancar. A diferencia del resto, no corresponde a un microservicio de aplicación.
+
+**Imagen base**
+
+Se usa `postgres:18-alpine3.23`. Se evaluó inicialmente `postgres:16-alpine` y se migró a la versión 18 buscando resolver las vulnerabilidades detectadas por Trivy (ver hallazgo de `gosu` más abajo).
+
+**Hallazgo: CVEs en `gosu`**
+
+Trivy detectó 14 vulnerabilidades (1 CRITICAL, 13 HIGH) en el binario `gosu`, incluido en la imagen oficial de postgres. `gosu` es una utilidad compilada con Go v1.24.6 que los mantenedores de la imagen usan para el cambio de usuario `root → postgres` al arrancar el servidor. La investigación determinó que:
+
+- Las mismas CVEs están presentes en `postgres:16-alpine` y `postgres:18-alpine3.23`: ambas incluyen la misma versión de `gosu`
+- Las vulnerabilidades son de tipo TLS/crypto DoS y afectan a un binario que no expone funcionalidad TLS ni realiza conexiones de red, por lo que la superficie de ataque real es mínima en este contexto
+- No es posible actualizar `gosu` sin recompilar la imagen base completa; depende de que los mantenedores de Alpine actualicen el paquete
+
+**Excepción: `src/db/.trivyignore`**
+
+Se creó el archivo `.trivyignore` con las 14 CVEs explícitamente listadas y documentadas. El archivo incluye la justificación técnica y debe ser removido cuando Alpine actualice el paquete `gosu` a una versión compilada con Go ≥ 1.24.13 o ≥ 1.25.7.
+
+**Validación de SQL**
+
+El job `validate-sql` levanta un servicio PostgreSQL real y ejecuta el script de inicialización `src/db/init-db.sql` contra él, verificando que el SQL es válido y que las bases de datos y tablas se crean correctamente. La contraseña de este contenedor de test se obtiene del secret `DB_PASSWORD`.
+
+**Sin SAST ni SonarCloud**
+
+El pipeline de DB no incluye análisis de código estático ni SonarCloud, ya que no hay código de aplicación que analizar; el único artefacto es un script SQL y una imagen de infraestructura.
+
+---
+
 ### Decisiones de arquitectura
 
 #### Diagrama de arquitectura general
