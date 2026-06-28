@@ -13,19 +13,19 @@
 
 ## Pre-requisitos
 
-### Variables de entrno
+### Variables de entorno
 
 ### Instrucciones de despliegue
 
 ---
 
-## Documentacion de proyecto
+## Documentación de proyecto
 
 ### Roles y responsabilidades
 
 Joaquín Gil: Encargado de infraestructura
 
-Joaquín Pardiñas: Encargado de documentacion y testing
+Joaquín Pardiñas: Encargado de documentación y testing
 
 Mateo González: Encargado de CI/CD
 
