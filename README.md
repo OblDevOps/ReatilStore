@@ -33,28 +33,28 @@
 
 El archivo `docker-compose.yml` define valores por defecto para todas las variables. No se requiere configuración adicional para levantar el entorno local.
 
-| Variable | Servicio | Default local |
-| -------- | -------- | ------------- |
-| `RETAIL_UI_ENDPOINTS_*` | ui | URLs internas de Docker Compose |
-| `CART_POSTGRES_*` / `RETAIL_CATALOG_PERSISTENCE_*` | cart, catalog, orders | `db:5432` |
-| `RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL` | checkout | `redis://redis:6379` |
-| `ADMIN_USERNAME` / `ADMIN_PASSWORD` | admin | `admin` / `admin` |
-| `ADMIN_JWT_SECRET` | admin | `change-me-in-production` |
+| Variable                                           | Servicio              | Default local                   |
+| -------------------------------------------------- | --------------------- | ------------------------------- |
+| `RETAIL_UI_ENDPOINTS_*`                            | ui                    | URLs internas de Docker Compose |
+| `CART_POSTGRES_*` / `RETAIL_CATALOG_PERSISTENCE_*` | cart, catalog, orders | `db:5432`                       |
+| `RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL`            | checkout              | `redis://redis:6379`            |
+| `ADMIN_USERNAME` / `ADMIN_PASSWORD`                | admin                 | `admin` / `admin`               |
+| `ADMIN_JWT_SECRET`                                 | admin                 | `change-me-in-production`       |
 
 #### Despliegue en AWS — GitHub Secrets requeridos
 
 Deben configurarse en **Settings → Secrets and variables → Actions** del repositorio antes de ejecutar cualquier pipeline.
 
-| Secret | Usado por | Descripción |
-| ------ | --------- | ----------- |
-| `AWS_ACCESS_KEY_ID` | Terraform CI + CI de microservicios | Credencial de AWS Academy |
-| `AWS_SECRET_ACCESS_KEY` | Terraform CI + CI de microservicios | Credencial de AWS Academy |
-| `AWS_SESSION_TOKEN` | Terraform CI + CI de microservicios | Token de sesión temporal del Learner Lab |
-| `DB_PASSWORD` | Terraform CI | Contraseña de PostgreSQL; se almacena en Secrets Manager |
-| `ADMIN_PASSWORD` | Terraform CI | Contraseña del panel admin; se almacena en Secrets Manager |
-| `ADMIN_JWT_SECRET` | Terraform CI | Secreto JWT del admin; se almacena en Secrets Manager |
-| `SONAR_TOKEN` | CI de cada microservicio | Token de SonarCloud para análisis de calidad |
-| `SEMGREP_APP_TOKEN` | CI de cada microservicio | Token de Semgrep para análisis SAST |
+| Secret                  | Usado por                           | Descripción                                                |
+| ----------------------- | ----------------------------------- | ---------------------------------------------------------- |
+| `AWS_ACCESS_KEY_ID`     | Terraform CI + CI de microservicios | Credencial de AWS Academy                                  |
+| `AWS_SECRET_ACCESS_KEY` | Terraform CI + CI de microservicios | Credencial de AWS Academy                                  |
+| `AWS_SESSION_TOKEN`     | Terraform CI + CI de microservicios | Token de sesión temporal del Learner Lab                   |
+| `DB_PASSWORD`           | Terraform CI                        | Contraseña de PostgreSQL; se almacena en Secrets Manager   |
+| `ADMIN_PASSWORD`        | Terraform CI                        | Contraseña del panel admin; se almacena en Secrets Manager |
+| `ADMIN_JWT_SECRET`      | Terraform CI                        | Secreto JWT del admin; se almacena en Secrets Manager      |
+| `SONAR_TOKEN`           | CI de cada microservicio            | Token de SonarCloud para análisis de calidad               |
+| `SEMGREP_APP_TOKEN`     | CI de cada microservicio            | Token de Semgrep para análisis SAST                        |
 
 ---
 
@@ -73,10 +73,10 @@ docker compose down
 docker compose down -v
 ```
 
-| Servicio | URL |
-| -------- | --- |
-| Tienda | http://localhost:8080 |
-| Admin | http://localhost:8081 |
+| Servicio | URL                   |
+| -------- | --------------------- |
+| Tienda   | http://localhost:8080 |
+| Admin    | http://localhost:8081 |
 
 #### Despliegue en AWS (primera vez)
 
@@ -195,7 +195,7 @@ Cada rama de vida corta se deriva de main, se integra mediante un Pull Request y
 
 Decidimos implementar **GitHub Flow** basándonos en nuestra experiencia previa con GitFlow en el proyecto integrador. Si bien esa metodología resultó muy útil en su momento, su estructura con múltiples ramas permanentes genera una sobrecarga innecesaria para un desarrollo de corta duración y sin continuidad a largo plazo.
 
-Aunque inicialmente evaluamos **GitLab Flow** como alternativa, descubrimos que seguía acarreando una complejidad similar a la de GitFlow para la escala de nuestro proyecto. Por ello, consolidamos la transición hacia GitHub Flow: un enfoque que mantiene una única rama permanente (`main`) siempre en estado desplegable, de la cual se derivan ramas de vida corta para cada *feature* o *fix* que se integran mediante Pull Requests. Esto elimina la necesidad de mantener una rama de desarrollo (`develop`), reduciendo pasos intermedios sin perder el orden ni el control del flujo de trabajo.
+Aunque inicialmente evaluamos **GitLab Flow** como alternativa, descubrimos que seguía acarreando una complejidad similar a la de GitFlow para la escala de nuestro proyecto. Por ello, consolidamos la transición hacia GitHub Flow: un enfoque que mantiene una única rama permanente (`main`) siempre en estado desplegable, de la cual se derivan ramas de vida corta para cada _feature_ o _fix_ que se integran mediante Pull Requests. Esto elimina la necesidad de mantener una rama de desarrollo (`develop`), reduciendo pasos intermedios sin perder el orden ni el control del flujo de trabajo.
 
 Además, al **gestionar los ambientes mediante pipelines** en lugar de asociarlos a ramas específicas, ganamos flexibilidad para promover el código entre entornos sin depender de la estructura de ramificación, lo que se adapta mejor a la naturaleza ágil y acotada del proyecto.
 
@@ -301,6 +301,7 @@ El proyecto checkout usa Yarn 4 (Berry) con Plug'n'Play. En lugar de invocar el 
 Trivy detectó `CVE-2026-12151` (HIGH) en `undici`, una librería HTTP bundleada dentro del binario de `npm` que viene incluido en la imagen base de Node.js (`/usr/local/lib/node_modules/npm`). La vulnerabilidad es un DoS a través de WebSockets.
 
 Se decidió suprimir esta CVE porque:
+
 - El `npm` interno de la imagen nunca se ejecuta en producción; el contenedor arranca directamente con `node dist/main.js`
 - Al no ejecutarse `npm`, el código vulnerable de `undici` nunca es alcanzable
 - El fix existe en `undici` 6.27.0 pero aún no está incluido en ninguna release de Node.js
@@ -529,9 +530,13 @@ Los tres ambientes comparten los mismos repositorios ECR, creados una sola vez e
 
 Toda la infraestructura está organizada en módulos Terraform. Los módulos `networking`, `ecs`, `ecs_service`, `database`, `redis` y `apigateway` son instanciados por los tres ambientes con parámetros distintos —CIDR de VPC, nombre de cluster, imágenes— lo que garantiza consistencia entre entornos y concentra los cambios en un único lugar. El módulo `ecs_service` es el más reutilizado: se instancia seis veces por ambiente (una por microservicio), evitando duplicar un patrón que incluye security groups, ALB, target group, listener, log group, ECS service y auto-scaling. El módulo `ecr` es un caso aparte: se instancia únicamente en dev, que es quien crea los repositorios de imágenes. Test y prod no lo usan — referencian esos mismos repositorios mediante `data "aws_ecr_repository"`, lo que refleja que ECR es un recurso compartido entre ambientes y no uno propio de cada entorno.
 
-**API Gateway únicamente para el frontend**
+**Bases de datos como contenedores ECS en lugar de RDS y ElastiCache**
 
-Implementamos HTTP API Gateway exclusivamente frente al servicio UI para aplicar throttling (1.000 req/s, burst de 2.000) y exponer un endpoint HTTPS al usuario final. No lo colocamos frente a los backends internos porque agregaría latencia en cada llamada sin beneficio real: esos servicios solo son accesibles dentro de la VPC. La integración es `HTTP_PROXY` hacia el ALB de la UI con rutas `ANY /` y `ANY /{proxy+}` que cubren todas las rutas sin configuración adicional.
+Tanto PostgreSQL como Redis corren como tasks de Fargate dentro del cluster ECS, en lugar de usar los servicios gestionados equivalentes (RDS y ElastiCache). Optamos por esta alternativa por ser la más simple y familiar para el equipo: al unificar aplicaciones y bases de datos bajo el mismo primitivo de despliegue, se evita incorporar servicios adicionales con sus propias configuraciones de red, seguridad y ciclo de vida. La contrapartida es que la gestión de disponibilidad, backups y failover recae en el propio equipo. En un entorno de producción real, la migración a RDS y ElastiCache sería el paso natural.
+
+**NAT Gateway único en dev/test, uno por AZ en prod**
+
+En los ambientes dev y test se usa un único NAT Gateway (`single_nat_gateway = true`), mientras que prod despliega uno por zona de disponibilidad. La razón es económica: un NAT Gateway tiene costo por hora más costo por GB procesado, y duplicarlo en entornos no productivos no agrega valor real. En prod, en cambio, un NAT Gateway único sería un punto único de falla: si la AZ donde reside cae, todas las tareas en subnets privadas de la otra AZ pierden acceso saliente a ECR, Secrets Manager y CloudWatch, lo que impediría arrancar nuevas tasks. Un NAT por AZ elimina esa dependencia.
 
 ---
 
