@@ -27,3 +27,9 @@ variable "availability_zones" {
   description = "Lista de Availability Zones"
   type        = list(string)
 }
+
+variable "single_nat_gateway" {
+  description = "Si es true, usa un único NAT Gateway compartido por todas las subnets privadas. Recomendado para ambientes non-prod para reducir costos y uso de cuota."
+  type        = bool
+  default     = false
+}

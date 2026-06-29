@@ -68,7 +68,7 @@ resource "aws_route_table_association" "public_subnet_association" {
 
 # Elastic IPs: una IP pública fija por cada NAT Gateway
 resource "aws_eip" "nat_eip" {
-  count  = length(var.public_subnets)
+  count  = var.single_nat_gateway ? 1 : length(var.public_subnets)
   domain = "vpc"
   tags = {
     Name        = "${var.vpc_name}-nat-eip-${count.index + 1}"
@@ -76,9 +76,9 @@ resource "aws_eip" "nat_eip" {
   }
 }
 
-# NAT Gateways: uno por AZ (alta disponibilidad); viven en las subnets públicas pero dan salida a las privadas
+# NAT Gateways: uno por AZ en prod (alta disponibilidad), uno compartido en non-prod (ahorro de cuota)
 resource "aws_nat_gateway" "nat_gw" {
-  count         = length(var.public_subnets)
+  count         = var.single_nat_gateway ? 1 : length(var.public_subnets)
   allocation_id = aws_eip.nat_eip[count.index].id
   subnet_id     = aws_subnet.public_subnet[count.index].id
   tags = {
@@ -97,12 +97,12 @@ resource "aws_route_table" "private_route_table" {
   }
 }
 
-# Ruta privada: dirige el tráfico de salida de cada subnet privada hacia el NAT de su misma zona
+# Ruta privada: en prod cada subnet privada usa el NAT de su misma AZ; en non-prod todas usan el único NAT
 resource "aws_route" "private_route" {
   count                  = length(var.private_subnets)
   route_table_id         = aws_route_table.private_route_table[count.index].id
   destination_cidr_block = "0.0.0.0/0"
-  nat_gateway_id         = aws_nat_gateway.nat_gw[count.index].id
+  nat_gateway_id         = var.single_nat_gateway ? aws_nat_gateway.nat_gw[0].id : aws_nat_gateway.nat_gw[count.index].id
 }
 
 # Asocia cada tabla privada a su subnet privada correspondiente

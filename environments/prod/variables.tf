@@ -61,3 +61,9 @@ variable "admin_username" {
   type        = string
   default     = "admin"
 }
+
+variable "single_nat_gateway" {
+  description = "Si es true, usa un único NAT Gateway compartido por todas las subnets privadas"
+  type        = bool
+  default     = false
+}
