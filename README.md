@@ -526,9 +526,9 @@ Para toda la capa de cómputo —incluyendo PostgreSQL y Redis— optamos por EC
 
 Como Fargate no ofrece almacenamiento de bloque persistente, elegimos Amazon EFS para mantener los datos de PostgreSQL entre reinicios y reemplazos de tareas. Configuramos mount targets en cada subnet privada —una por zona de disponibilidad— para garantizar que la tarea puede arrancar en cualquier AZ sin perder datos. La latencia de EFS es mayor que la de EBS, pero es aceptable para la carga de este proyecto; en un entorno de producción de alta demanda, la alternativa natural sería migrar a RDS.
 
-**Repositorios ECR compartidos y promoción de artefactos**
+**Repositorios ECR compartidos**
 
-Los tres ambientes comparten los mismos repositorios ECR, creados una sola vez en dev. Las imágenes se construyen una única vez con el SHA del commit y se re-etiquetan conforme avanzan: `:sha` → `:dev` → `:test` → `:prod`. Esto garantiza que el artefacto que llega a producción es exactamente el mismo que fue testeado, eliminando variaciones por re-builds. Cada ambiente tiene su propia VPC con rangos CIDR no superpuestos y su propio estado Terraform en S3.
+Los tres ambientes comparten los mismos repositorios ECR, creados una sola vez en dev. Cada ambiente tiene su propia VPC con rangos CIDR no superpuestos y su propio estado Terraform en S3.
 
 **Infraestructura modularizada con Terraform**
 
