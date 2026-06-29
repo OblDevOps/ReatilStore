@@ -538,10 +538,6 @@ Toda la infraestructura está organizada en módulos Terraform. Los módulos `ne
 
 Tanto PostgreSQL como Redis corren como tasks de Fargate dentro del cluster ECS, en lugar de usar los servicios gestionados equivalentes (RDS y ElastiCache). Optamos por esta alternativa por ser la más simple y familiar para el equipo: al unificar aplicaciones y bases de datos bajo el mismo primitivo de despliegue, se evita incorporar servicios adicionales con sus propias configuraciones de red, seguridad y ciclo de vida. La contrapartida es que la gestión de disponibilidad, backups y failover recae en el propio equipo. En un entorno de producción real, la migración a RDS y ElastiCache sería el paso natural.
 
-**NAT Gateway único en dev/test, uno por AZ en prod**
-
-En los ambientes dev y test se usa un único NAT Gateway (`single_nat_gateway = true`), mientras que prod despliega uno por zona de disponibilidad. La razón es económica: un NAT Gateway tiene costo por hora más costo por GB procesado, y duplicarlo en entornos no productivos no agrega valor real. En prod, en cambio, un NAT Gateway único sería un punto único de falla: si la AZ donde reside cae, todas las tareas en subnets privadas de la otra AZ pierden acceso saliente a ECR, Secrets Manager y CloudWatch, lo que impediría arrancar nuevas tasks. Un NAT por AZ elimina esa dependencia.
-
 ---
 
 ### Gestión del proyecto
