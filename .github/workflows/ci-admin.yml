@@ -235,6 +235,13 @@ jobs:
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for admin to stabilize (dev)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-dev \
+            --services admin \
+            --region ${{ env.AWS_REGION }}
+
   deploy-test:
     name: Deploy → test
     needs: build-and-push
@@ -269,6 +276,13 @@ jobs:
             --cluster retailstore-test \
             --service admin \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for admin to stabilize (test)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-test \
+            --services admin \
             --region ${{ env.AWS_REGION }}
 
   # Despliegue a prod (requiere aprobación manual en GitHub Environments)
@@ -306,4 +320,11 @@ jobs:
             --cluster retailstore-prod \
             --service admin \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for admin to stabilize (prod)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-prod \
+            --services admin \
             --region ${{ env.AWS_REGION }}

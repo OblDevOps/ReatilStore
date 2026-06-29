@@ -250,6 +250,13 @@ jobs:
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for orders to stabilize (dev)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-dev \
+            --services orders \
+            --region ${{ env.AWS_REGION }}
+
   deploy-test:
     name: Deploy → test
     needs: build-and-push
@@ -284,6 +291,13 @@ jobs:
             --cluster retailstore-test \
             --service orders \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for orders to stabilize (test)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-test \
+            --services orders \
             --region ${{ env.AWS_REGION }}
 
   # Despliegue a prod (requiere aprobación manual en GitHub Environments)
@@ -321,4 +335,11 @@ jobs:
             --cluster retailstore-prod \
             --service orders \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for orders to stabilize (prod)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-prod \
+            --services orders \
             --region ${{ env.AWS_REGION }}

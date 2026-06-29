@@ -223,6 +223,13 @@ jobs:
             --force-new-deployment \
             --region ${{ env.AWS_REGION }}
 
+      - name: Wait for cart to stabilize (dev)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-dev \
+            --services cart \
+            --region ${{ env.AWS_REGION }}
+
   deploy-test:
     name: Deploy → test
     needs: build-and-push
@@ -257,6 +264,13 @@ jobs:
             --cluster retailstore-test \
             --service cart \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for cart to stabilize (test)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-test \
+            --services cart \
             --region ${{ env.AWS_REGION }}
 
   # Despliegue a prod (requiere aprobación manual en GitHub Environments)
@@ -294,4 +308,11 @@ jobs:
             --cluster retailstore-prod \
             --service cart \
             --force-new-deployment \
+            --region ${{ env.AWS_REGION }}
+
+      - name: Wait for cart to stabilize (prod)
+        run: |
+          aws ecs wait services-stable \
+            --cluster retailstore-prod \
+            --services cart \
             --region ${{ env.AWS_REGION }}
