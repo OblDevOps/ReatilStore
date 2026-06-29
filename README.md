@@ -11,6 +11,10 @@
 
 ---
 
+### Observación
+
+En esta entrega surgió un imprevisto: el equipo encontró un error no reproducible durante el inicio del sistema al levantar los microservicios. En un principio, estos funcionan correctamente en el ambiente de desarrollo, pero al levantar los demás entornos, algunos microservicios dejan de funcionar. Tras investigar el comportamiento, descubrimos que podría existir un límite en la cantidad de contenedores o en la memoria disponible, lo que provoca que ciertos microservicios no se ejecuten o se detengan inesperadamente cuando se inician otros nuevos.
+
 ## Pre-requisitos
 
 ### Ejecución local
@@ -537,7 +541,11 @@ Implementamos HTTP API Gateway exclusivamente frente al servicio UI para aplicar
 
 ### Gestión del proyecto
 
+Para la gestión de tareas y la organización del equipo, se implementó un tablero Kanban mediante la herramienta Trello. Este tablero se mantuvo actualizado de forma continua durante todo el ciclo de vida del proyecto, funcionando como un eje central para la visualización del flujo de trabajo. Las tareas se categorizaron dinámicamente en tres estados principales: Lista de tareas (To Do), En proceso (In Progress) y Hecho (Done), permitiendo un seguimiento en tiempo real del avance de cada requerimiento. Se seleccionó esta herramienta debido a su flexibilidad, lo cual facilitó la adaptación de la metodología a las necesidades específicas del equipo y permitió gestionar el cambio de manera ágil a través de la adición, modificación o eliminación de tareas a medida que el proyecto evolucionaba.
+
 #### Tablero Kanban
+
+Capturas de pantalla en distintas etapas mostrando la evolución del tablero Kanban utilizado a lo largo del desarrollo del proyecto.
 
 ##### Inicio
 
@@ -549,4 +557,4 @@ Implementamos HTTP API Gateway exclusivamente frente al servicio UI para aplicar
 
 ##### Cierre
 
-_Pendiente_
+![Kanban final](docs/img/tablero-final.png)
