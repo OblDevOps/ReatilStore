@@ -1,20 +1,41 @@
+import time
 import psycopg2
 import psycopg2.extras
 from app.models import Item, Cart
 from app.service import CartService
 from app.config import settings
 
+_MAX_RETRIES = 30
+_RETRY_DELAY = 2
+
 
 class PostgresCartService(CartService):
     def __init__(self):
-        self._conn = psycopg2.connect(
-            host=settings.postgres_host,
-            port=settings.postgres_port,
-            dbname=settings.postgres_db,
-            user=settings.postgres_user,
-            password=settings.postgres_password,
-        )
-        self._conn.autocommit = True
+        for attempt in range(1, _MAX_RETRIES + 1):
+            conn = None
+            try:
+                conn = psycopg2.connect(
+                    host=settings.postgres_host,
+                    port=settings.postgres_port,
+                    dbname=settings.postgres_db,
+                    user=settings.postgres_user,
+                    password=settings.postgres_password,
+                )
+                conn.autocommit = True
+                with conn.cursor() as cur:
+                    cur.execute("SELECT 1 FROM cart_items LIMIT 1")
+                self._conn = conn
+                return
+            except Exception as e:
+                if conn is not None:
+                    try:
+                        conn.close()
+                    except Exception:
+                        pass
+                if attempt == _MAX_RETRIES:
+                    raise
+                print(f"Waiting for PostgreSQL... ({attempt}/{_MAX_RETRIES}): {e}")
+                time.sleep(_RETRY_DELAY)
 
     def get(self, customer_id: str) -> Cart:
         return Cart(customerId=customer_id, items=self.get_items(customer_id))
