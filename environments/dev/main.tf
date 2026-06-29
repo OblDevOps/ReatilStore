@@ -41,7 +41,7 @@ module "service_ui" {
   cluster_name = module.ecs.cluster_name
 
 
-  container_image = "${module.ecr.repository_urls["ui"]}:latest"
+  container_image = "${module.ecr.repository_urls["ui"]}:${var.environment}"
 
   # configuración del contenedor
   container_port    = 8080
@@ -79,7 +79,7 @@ module "database" {
   private_subnet_ids = module.network.private_subnet_ids
   cluster_id         = module.ecs.cluster_id
 
-  container_image    = "${module.ecr.repository_urls["db"]}:latest"
+  container_image    = "${module.ecr.repository_urls["db"]}:${var.environment}"
   execution_role_arn = data.aws_iam_role.labrole.arn
 
   db_secret_arn = aws_secretsmanager_secret.db_password.arn
@@ -101,7 +101,7 @@ module "service_catalog" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image = "${module.ecr.repository_urls["catalog"]}:latest"
+  container_image = "${module.ecr.repository_urls["catalog"]}:${var.environment}"
 
   container_port    = 8080
   cpu               = 256
@@ -143,7 +143,7 @@ module "service_orders" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["orders"]}:latest"
+  container_image   = "${module.ecr.repository_urls["orders"]}:${var.environment}"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -181,7 +181,7 @@ module "service_cart" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["cart"]}:latest"
+  container_image   = "${module.ecr.repository_urls["cart"]}:${var.environment}"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -233,7 +233,7 @@ module "service_checkout" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["checkout"]}:latest"
+  container_image   = "${module.ecr.repository_urls["checkout"]}:${var.environment}"
   container_port    = 8080
   cpu               = 256
   memory            = 512
@@ -263,7 +263,7 @@ module "service_admin" {
   cluster_id   = module.ecs.cluster_id
   cluster_name = module.ecs.cluster_name
 
-  container_image   = "${module.ecr.repository_urls["admin"]}:latest"
+  container_image   = "${module.ecr.repository_urls["admin"]}:${var.environment}"
   container_port    = 8080
   cpu               = 256
   memory            = 512
